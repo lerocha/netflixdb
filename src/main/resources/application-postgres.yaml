@@ -1,0 +1,5 @@
+spring.datasource:
+  driver-class-name: org.postgresql.Driver
+  url: jdbc:postgresql://localhost/netflixdb
+  username: postgres
+  password: postgres

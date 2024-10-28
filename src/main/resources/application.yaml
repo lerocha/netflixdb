@@ -1,1 +1,19 @@
 spring.application.name: NetflixDB
+
+spring.datasource:
+  driverClassName: org.h2.Driver
+  url: jdbc:h2:mem:exchange_rates;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=MySQL
+  username: sa
+  password:
+
+spring.h2.console:
+  enabled: false
+  path: /h2
+
+spring.jpa:
+  hibernate:
+    ddlAuto: create
+  properties:
+    hibernate:
+      show_sql: true
+      format_sql: true
