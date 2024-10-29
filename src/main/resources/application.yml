@@ -6,6 +6,10 @@ spring.datasource:
   username: sa
   password:
 
+spring.batch:
+  jdbc:
+    initialize-schema: always
+
 spring.h2.console:
   enabled: false
   path: /h2
