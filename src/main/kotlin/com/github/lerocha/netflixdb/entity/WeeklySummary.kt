@@ -15,7 +15,7 @@ import java.time.LocalDate
     indexes = [
         Index(name = "fk_weekly_summary_show_id", columnList = "show_id", unique = false),
         Index(name = "fk_weekly_summary_season_id", columnList = "season_id", unique = false),
-    ]
+    ],
 )
 class WeeklySummary : AbstractEntity() {
     @Column(nullable = false)

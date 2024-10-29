@@ -12,8 +12,8 @@ import org.hibernate.annotations.Comment
 @Entity
 @Table(
     indexes = [
-        Index(name = "fk_season_show_id", columnList = "show_id", unique = false)
-    ]
+        Index(name = "fk_season_show_id", columnList = "show_id", unique = false),
+    ],
 )
 class Season : AbstractEntity() {
     @Column(length = 255, nullable = false)

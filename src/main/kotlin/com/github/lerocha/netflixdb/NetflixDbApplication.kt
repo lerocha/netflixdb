@@ -7,5 +7,5 @@ import org.springframework.boot.runApplication
 class NetflixDbApplication
 
 fun main(args: Array<String>) {
-	runApplication<NetflixDbApplication>(*args)
+    runApplication<NetflixDbApplication>(*args)
 }
