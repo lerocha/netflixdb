@@ -8,7 +8,7 @@ import java.math.BigDecimal
 @Entity
 class Show : AbstractEntity() {
     @Column(length = 255, nullable = false)
-    @Comment("The show's title")
+    @Comment("The show title")
     var title: String? = null
 
     @Column(length = 100, nullable = false)

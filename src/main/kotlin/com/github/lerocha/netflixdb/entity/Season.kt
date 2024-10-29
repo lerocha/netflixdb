@@ -17,7 +17,7 @@ import org.hibernate.annotations.Comment
 )
 class Season : AbstractEntity() {
     @Column(length = 255, nullable = false)
-    @Comment("The season's title")
+    @Comment("The season title")
     var title: String? = null
 
     @ManyToOne
