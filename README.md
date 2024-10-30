@@ -22,4 +22,4 @@ Download the SQL scripts from the [latest release](../../releases) assets. One o
 
 ### Data Model
 
-TBD
+![database.png](src/main/resources/images/database.png)
