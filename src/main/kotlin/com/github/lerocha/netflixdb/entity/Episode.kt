@@ -2,12 +2,10 @@ package com.github.lerocha.netflixdb.entity
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.FetchType
 import jakarta.persistence.ForeignKey
 import jakarta.persistence.Index
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
-import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
 import java.math.BigDecimal
@@ -16,21 +14,20 @@ import java.time.LocalDate
 @Entity
 @Table(
     indexes = [
-        Index(name = "fk_season_show_id", columnList = "show_id", unique = false),
-        Index(name = "fk_season_tv_show_id", columnList = "tv_show_id", unique = false),
+        Index(name = "fk_episode_season_id", columnList = "season_id", unique = false),
     ],
 )
-class Season : AbstractEntity() {
+class Episode : AbstractEntity() {
     @Column(nullable = false)
-    @Comment("The season number")
+    @Comment("The episode number")
     var number: Int? = null
 
     @Column(length = 255, nullable = false)
-    @Comment("The season title")
+    @Comment("The episode title")
     var title: String? = null
 
     @Column(length = 255, nullable = false)
-    @Comment("The season title in its original language")
+    @Comment("The episode title in its original language")
     var originalTitle: String? = null
 
     @Column(nullable = false)
@@ -42,15 +39,7 @@ class Season : AbstractEntity() {
     var releaseDate: LocalDate? = null
 
     @ManyToOne
-    @Comment("The show that this season belongs to")
-    @JoinColumn(nullable = false, foreignKey = ForeignKey(name = "fk_season_show_id"))
-    var show: Show? = null
-
-    @ManyToOne
-    @Comment("The TV show that this season belongs to")
-    @JoinColumn(nullable = false, foreignKey = ForeignKey(name = "fk_season_tv_show_id"))
-    var tvShow: TvShow? = null
-
-    @OneToMany(mappedBy = "season", fetch = FetchType.LAZY)
-    var episodes: MutableList<Episode> = mutableListOf()
+    @Comment("The season that this episode belongs to")
+    @JoinColumn(nullable = false, foreignKey = ForeignKey(name = "fk_episode_season_id"))
+    var season: Season? = null
 }
