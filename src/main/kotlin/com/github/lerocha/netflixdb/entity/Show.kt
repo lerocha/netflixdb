@@ -2,11 +2,18 @@ package com.github.lerocha.netflixdb.entity
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.Index
+import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
 import java.math.BigDecimal
 import java.time.LocalDate
 
 @Entity
+@Table(
+    indexes = [
+        Index(name = "idx_show_title", columnList = "title", unique = true),
+    ],
+)
 class Show : AbstractEntity() {
     @Column(length = 255, nullable = false)
     @Comment("The show title")
@@ -21,8 +28,8 @@ class Show : AbstractEntity() {
     var category: String? = null
 
     @Column(nullable = false)
-    @Comment("Show total runtime in hours")
-    var runtime: BigDecimal? = null
+    @Comment("The total runtime in minutes")
+    var runtime: Long? = null
 
     @Column(nullable = true)
     @Comment("Date when this title was released")

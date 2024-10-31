@@ -18,9 +18,9 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.io.ClassPathResource
 import org.springframework.transaction.PlatformTransactionManager
-import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
+import kotlin.time.Duration
 
 @Configuration
 class ImportNetflixReportsJobConfig {
@@ -44,6 +44,7 @@ class ImportNetflixReportsJobConfig {
         transactionManager: PlatformTransactionManager,
         engagementReportRowMapper: RowMapper<Show>,
         showWriter: RepositoryItemWriter<Show>,
+        showRepository: ShowRepository,
     ): Step =
         StepBuilder("engagementReportStep", jobRepository)
             .chunk<Show, Show>(10, transactionManager)
@@ -57,7 +58,7 @@ class ImportNetflixReportsJobConfig {
             )
             .processor({ show ->
                 logger.info("engagementReportStep: ${show.title}")
-                show
+                if (showRepository.findByTitle(show.title!!) == null) show else null
             })
             .writer(showWriter)
             .faultTolerant()
@@ -70,7 +71,9 @@ class ImportNetflixReportsJobConfig {
             Show().apply {
                 createdDate = Instant.now()
                 modifiedDate = Instant.now()
-                runtime = BigDecimal.ZERO
+                runtime = rowSet.properties["Runtime"]?.toString()?.let { runtime ->
+                    Duration.parseOrNull(runtime.replace(":", "h") + "m")?.inWholeMinutes
+                } ?: 0
                 title = titles.firstOrNull()?.trim()
                 originalTitle = titles.lastOrNull()?.trim()
                 category = rowSet.metaData.sheetName
@@ -92,6 +95,7 @@ class ImportNetflixReportsJobConfig {
         transactionManager: PlatformTransactionManager,
         showWriter: RepositoryItemWriter<Show>,
         weeklySummaryRowMapper: RowMapper<Show>,
+        showRepository: ShowRepository,
     ): Step =
         StepBuilder("weeklySummaryStep", jobRepository)
             .chunk<Show, Show>(10, transactionManager)
@@ -105,7 +109,7 @@ class ImportNetflixReportsJobConfig {
             )
             .processor { show ->
                 logger.info("weeklySummaryStep: ${show.title}")
-                show
+                if (showRepository.findByTitle(show.title!!) == null) show else null
             }
             .writer(showWriter)
             .faultTolerant()
@@ -119,11 +123,18 @@ class ImportNetflixReportsJobConfig {
                 modifiedDate = Instant.now()
                 runtime =
                     rowSet.properties["runtime"]?.toString()?.let {
-                        if (it > "") it.toBigDecimal() else null
-                    }
+                        if (it > "") it.toBigDecimal().multiply(60.toBigDecimal()).toLong() else null
+                    } ?: 0
                 title = rowSet.properties["show_title"]?.toString()?.trim()
                 originalTitle = rowSet.properties["show_title"]?.toString()?.trim()
-                category = rowSet.properties["category"]?.toString()?.trim()
+                category =
+                    rowSet.properties["category"]?.toString()?.trim()?.let {
+                        when {
+                            it.contains("TV") -> "TV"
+                            it.contains("Film") -> "Film"
+                            else -> null
+                        }
+                    }
                 releaseDate = null
                 hoursViewed =
                     rowSet.properties["weekly_hours_viewed"]?.toString()?.let {

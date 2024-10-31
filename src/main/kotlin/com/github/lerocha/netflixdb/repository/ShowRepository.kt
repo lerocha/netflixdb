@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository
 import java.util.UUID
 
 @Repository
-interface ShowRepository : JpaRepository<Show, UUID>
+interface ShowRepository : JpaRepository<Show, UUID> {
+    fun findByTitle(title: String): Show?
+}

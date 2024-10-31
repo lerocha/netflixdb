@@ -8,6 +8,7 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
+import java.math.BigDecimal
 
 @Entity
 @Table(
@@ -24,4 +25,8 @@ class Season : AbstractEntity() {
     @Comment("The show that this season belongs to")
     @JoinColumn(nullable = false, foreignKey = ForeignKey(name = "fk_season_show_id"))
     var show: Show? = null
+
+    @Column(nullable = false)
+    @Comment("The total runtime in minutes")
+    var runtime: BigDecimal? = null
 }
