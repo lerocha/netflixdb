@@ -1,10 +1,7 @@
 package com.github.lerocha.netflixdb.entity
 
-import com.github.lerocha.netflixdb.dto.StreamingCategory
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
 import jakarta.persistence.Index
 import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
@@ -13,21 +10,17 @@ import java.time.LocalDate
 @Entity
 @Table(
     indexes = [
-        Index(name = "idx_show_title", columnList = "title", unique = true),
+        Index(name = "idx_movie_title", columnList = "title", unique = true),
     ],
 )
-class Show : AbstractEntity() {
+class Movie : AbstractEntity() {
     @Column(length = 255, nullable = false)
-    @Comment("The show title")
+    @Comment("The movie title")
     var title: String? = null
 
     @Column(length = 255, nullable = false)
-    @Comment("The show title in its original language")
+    @Comment("The movie title in its original language")
     var originalTitle: String? = null
-
-    @Enumerated(EnumType.STRING)
-    @Comment("The category of this show, such as Films, TV, etc.")
-    var category: StreamingCategory? = null
 
     @Column(nullable = false)
     @Comment("The total runtime in minutes")

@@ -4,10 +4,10 @@ import com.github.lerocha.netflixdb.dto.ReportSheetRow
 import com.github.lerocha.netflixdb.dto.StreamingCategory
 import com.github.lerocha.netflixdb.dto.toSeason
 import com.github.lerocha.netflixdb.dto.toShow
+import com.github.lerocha.netflixdb.entity.Movie
 import com.github.lerocha.netflixdb.entity.Season
-import com.github.lerocha.netflixdb.entity.Show
+import com.github.lerocha.netflixdb.repository.MovieRepository
 import com.github.lerocha.netflixdb.repository.SeasonRepository
-import com.github.lerocha.netflixdb.repository.ShowRepository
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.batch.core.Job
@@ -52,16 +52,15 @@ class ImportNetflixDataJobConfig {
         jobRepository: JobRepository,
         transactionManager: PlatformTransactionManager,
         engagementReportReader: PoiItemReader<ReportSheetRow>,
-        showProcessor: ItemProcessor<ReportSheetRow, Show>,
-        showWriter: RepositoryItemWriter<Show>,
-        showRepository: ShowRepository,
+        movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
+        movieWriter: RepositoryItemWriter<Movie>,
     ): Step =
         StepBuilder("importMoviesFromEngagementReportStep", jobRepository)
-            .chunk<ReportSheetRow, Show>(10, transactionManager)
+            .chunk<ReportSheetRow, Movie>(10, transactionManager)
             .allowStartIfComplete(true)
             .reader(engagementReportReader)
-            .processor(showProcessor)
-            .writer(showWriter)
+            .processor(movieProcessor)
+            .writer(movieWriter)
             .faultTolerant()
             .build()
 
@@ -70,16 +69,15 @@ class ImportNetflixDataJobConfig {
         jobRepository: JobRepository,
         transactionManager: PlatformTransactionManager,
         top10ListReader: PoiItemReader<ReportSheetRow>,
-        showProcessor: ItemProcessor<ReportSheetRow, Show>,
-        showWriter: RepositoryItemWriter<Show>,
-        showRepository: ShowRepository,
+        movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
+        movieWriter: RepositoryItemWriter<Movie>,
     ): Step =
         StepBuilder("importMoviesFromTop10ListStep", jobRepository)
-            .chunk<ReportSheetRow, Show>(10, transactionManager)
+            .chunk<ReportSheetRow, Movie>(10, transactionManager)
             .allowStartIfComplete(true)
             .reader(top10ListReader)
-            .processor(showProcessor)
-            .writer(showWriter)
+            .processor(movieProcessor)
+            .writer(movieWriter)
             .faultTolerant()
             .build()
 
@@ -90,7 +88,6 @@ class ImportNetflixDataJobConfig {
         engagementReportReader: PoiItemReader<ReportSheetRow>,
         seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
         seasonWriter: RepositoryItemWriter<Season>,
-        seasonRepository: SeasonRepository,
     ): Step =
         StepBuilder("importSeasonsFromEngagementReportStep", jobRepository)
             .chunk<ReportSheetRow, Season>(10, transactionManager)
@@ -108,7 +105,6 @@ class ImportNetflixDataJobConfig {
         top10ListReader: PoiItemReader<ReportSheetRow>,
         seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
         seasonWriter: RepositoryItemWriter<Season>,
-        showRepository: ShowRepository,
     ): Step =
         StepBuilder("importSeasonsFromTop10ListStep", jobRepository)
             .chunk<ReportSheetRow, Season>(10, transactionManager)
@@ -184,34 +180,34 @@ class ImportNetflixDataJobConfig {
         }
 
     @Bean
-    fun showProcessor(showRepository: ShowRepository): ItemProcessor<ReportSheetRow, Show> =
-        ItemProcessor<ReportSheetRow, Show> { reportSheetRow ->
+    fun movieProcessor(movieRepository: MovieRepository): ItemProcessor<ReportSheetRow, Movie> =
+        ItemProcessor<ReportSheetRow, Movie> { reportSheetRow ->
             if (reportSheetRow.category != StreamingCategory.MOVIE) return@ItemProcessor null
-            if (showRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
+            if (movieRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
             logger.info("showProcessor: ${reportSheetRow.title}")
             reportSheetRow.toShow()
         }
 
     @Bean
-    fun seasonProcessor(showRepository: ShowRepository): ItemProcessor<ReportSheetRow, Season> =
+    fun seasonProcessor(seasonRepository: SeasonRepository): ItemProcessor<ReportSheetRow, Season> =
         ItemProcessor<ReportSheetRow, Season> { reportSheetRow ->
             if (reportSheetRow.category != StreamingCategory.TV_SHOW) return@ItemProcessor null
-            if (showRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
+            if (seasonRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
             logger.info("seasonProcessor: ${reportSheetRow.title}")
             reportSheetRow.toSeason()
         }
 
     @Bean
-    fun showWriter(repository: ShowRepository): RepositoryItemWriter<Show> =
-        RepositoryItemWriterBuilder<Show>()
-            .repository(repository)
+    fun movieWriter(movieRepository: MovieRepository): RepositoryItemWriter<Movie> =
+        RepositoryItemWriterBuilder<Movie>()
+            .repository(movieRepository)
             .methodName("save")
             .build()
 
     @Bean
-    fun seasonWriter(repository: SeasonRepository): RepositoryItemWriter<Season> =
+    fun seasonWriter(seasonRepository: SeasonRepository): RepositoryItemWriter<Season> =
         RepositoryItemWriterBuilder<Season>()
-            .repository(repository)
+            .repository(seasonRepository)
             .methodName("save")
             .build()
 }

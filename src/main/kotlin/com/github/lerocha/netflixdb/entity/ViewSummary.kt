@@ -13,7 +13,7 @@ import java.time.LocalDate
 @Entity
 @Table(
     indexes = [
-        Index(name = "fk_view_summary_show_id", columnList = "show_id", unique = false),
+        Index(name = "fk_view_summary_movie_id", columnList = "movie_id", unique = false),
         Index(name = "fk_view_summary_season_id", columnList = "season_id", unique = false),
     ],
 )
@@ -40,8 +40,8 @@ class ViewSummary : AbstractEntity() {
 
     @ManyToOne
     @Comment("The show for this weekly summary")
-    @JoinColumn(nullable = false, foreignKey = ForeignKey(name = "fk_view_summary_show_id"))
-    var show: Show? = null
+    @JoinColumn(nullable = false, foreignKey = ForeignKey(name = "fk_view_summary_movie_id"))
+    var movie: Movie? = null
 
     @ManyToOne
     @Comment("The season for this weekly summary")

@@ -1,7 +1,7 @@
 package com.github.lerocha.netflixdb.dto
 
+import com.github.lerocha.netflixdb.entity.Movie
 import com.github.lerocha.netflixdb.entity.Season
-import com.github.lerocha.netflixdb.entity.Show
 import com.github.lerocha.netflixdb.entity.TvShow
 import java.time.Instant
 import java.time.LocalDate
@@ -17,12 +17,11 @@ data class ReportSheetRow(
 )
 
 fun ReportSheetRow.toShow() =
-    Show().apply {
+    Movie().apply {
         this.createdDate = Instant.now()
         this.modifiedDate = Instant.now()
         this.title = this@toShow.title
         this.originalTitle = this@toShow.originalTitle
-        this.category = this@toShow.category
         this.runtime = this@toShow.runtime
         this.releaseDate = this@toShow.releaseDate
         this.availableGlobally = this@toShow.availableGlobally
