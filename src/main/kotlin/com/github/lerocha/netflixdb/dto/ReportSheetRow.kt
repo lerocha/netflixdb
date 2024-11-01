@@ -31,8 +31,14 @@ fun ReportSheetRow.toTvShow() =
     TvShow().apply {
         this.createdDate = Instant.now()
         this.modifiedDate = Instant.now()
-        this.title = this@toTvShow.title
-        this.originalTitle = this@toTvShow.originalTitle
+        this.title =
+            this@toTvShow.title?.split(":")?.lastOrNull()?.let { last ->
+                this@toTvShow.title?.replace(":$last", "")?.trim()
+            }
+        this.originalTitle =
+            this@toTvShow.originalTitle?.split(":")?.lastOrNull()?.let { last ->
+                this@toTvShow.originalTitle?.replace(":$last", "")?.trim()
+            }
         this.availableGlobally = this@toTvShow.availableGlobally
     }
 

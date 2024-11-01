@@ -4,10 +4,12 @@ import com.github.lerocha.netflixdb.dto.ReportSheetRow
 import com.github.lerocha.netflixdb.dto.StreamingCategory
 import com.github.lerocha.netflixdb.dto.toSeason
 import com.github.lerocha.netflixdb.dto.toShow
+import com.github.lerocha.netflixdb.dto.toTvShow
 import com.github.lerocha.netflixdb.entity.Movie
 import com.github.lerocha.netflixdb.entity.Season
 import com.github.lerocha.netflixdb.repository.MovieRepository
 import com.github.lerocha.netflixdb.repository.SeasonRepository
+import com.github.lerocha.netflixdb.repository.TvShowRepository
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.batch.core.Job
@@ -184,17 +186,25 @@ class ImportNetflixDataJobConfig {
         ItemProcessor<ReportSheetRow, Movie> { reportSheetRow ->
             if (reportSheetRow.category != StreamingCategory.MOVIE) return@ItemProcessor null
             if (movieRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
-            logger.info("showProcessor: ${reportSheetRow.title}")
+            logger.info("movieProcessor: ${reportSheetRow.title}")
             reportSheetRow.toShow()
         }
 
     @Bean
-    fun seasonProcessor(seasonRepository: SeasonRepository): ItemProcessor<ReportSheetRow, Season> =
+    fun seasonProcessor(
+        seasonRepository: SeasonRepository,
+        tvShowRepository: TvShowRepository,
+    ): ItemProcessor<ReportSheetRow, Season> =
         ItemProcessor<ReportSheetRow, Season> { reportSheetRow ->
             if (reportSheetRow.category != StreamingCategory.TV_SHOW) return@ItemProcessor null
             if (seasonRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
             logger.info("seasonProcessor: ${reportSheetRow.title}")
-            reportSheetRow.toSeason()
+            reportSheetRow.toSeason().apply {
+                if (this.number is Int) {
+                    val tvShow = reportSheetRow.toTvShow()
+                    this.tvShow = tvShowRepository.findByTitle(tvShow.title!!) ?: tvShowRepository.save(tvShow)
+                }
+            }
         }
 
     @Bean
