@@ -10,7 +10,6 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
-import java.math.BigDecimal
 import java.time.LocalDate
 
 @Entity
@@ -21,7 +20,7 @@ import java.time.LocalDate
     ],
 )
 class Season : AbstractEntity() {
-    @Column(nullable = false)
+    @Column(nullable = true)
     @Comment("The season number")
     var number: Int? = null
 
@@ -35,20 +34,15 @@ class Season : AbstractEntity() {
 
     @Column(nullable = false)
     @Comment("The total runtime in minutes")
-    var runtime: BigDecimal? = null
+    var runtime: Long? = null
 
     @Column(nullable = true)
     @Comment("Date when this title was released")
     var releaseDate: LocalDate? = null
 
     @ManyToOne
-    @Comment("The show that this season belongs to")
-    @JoinColumn(nullable = false, foreignKey = ForeignKey(name = "fk_season_show_id"))
-    var show: Show? = null
-
-    @ManyToOne
     @Comment("The TV show that this season belongs to")
-    @JoinColumn(nullable = false, foreignKey = ForeignKey(name = "fk_season_tv_show_id"))
+    @JoinColumn(nullable = true, foreignKey = ForeignKey(name = "fk_season_tv_show_id"))
     var tvShow: TvShow? = null
 
     @OneToMany(mappedBy = "season", fetch = FetchType.LAZY)

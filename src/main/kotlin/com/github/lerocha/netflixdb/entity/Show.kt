@@ -1,11 +1,13 @@
 package com.github.lerocha.netflixdb.entity
 
+import com.github.lerocha.netflixdb.dto.StreamingCategory
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.Index
 import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
-import java.math.BigDecimal
 import java.time.LocalDate
 
 @Entity
@@ -23,9 +25,9 @@ class Show : AbstractEntity() {
     @Comment("The show title in its original language")
     var originalTitle: String? = null
 
-    @Column(length = 100, nullable = true)
+    @Enumerated(EnumType.STRING)
     @Comment("The category of this show, such as Films, TV, etc.")
-    var category: String? = null
+    var category: StreamingCategory? = null
 
     @Column(nullable = false)
     @Comment("The total runtime in minutes")
@@ -34,10 +36,6 @@ class Show : AbstractEntity() {
     @Column(nullable = true)
     @Comment("Date when this title was released")
     var releaseDate: LocalDate? = null
-
-    @Column(nullable = false)
-    @Comment("The total hours viewed")
-    var hoursViewed: BigDecimal? = BigDecimal.ZERO
 
     @Column(nullable = false)
     @Comment("A flag that indicates if this title is available outside US")
