@@ -3,8 +3,8 @@ package com.github.lerocha.netflixdb.batch
 import com.github.lerocha.netflixdb.dto.ReportSheetRow
 import com.github.lerocha.netflixdb.dto.StreamingCategory
 import com.github.lerocha.netflixdb.dto.toCategory
+import com.github.lerocha.netflixdb.dto.toMovie
 import com.github.lerocha.netflixdb.dto.toSeason
-import com.github.lerocha.netflixdb.dto.toShow
 import com.github.lerocha.netflixdb.dto.toTvShow
 import com.github.lerocha.netflixdb.entity.Movie
 import com.github.lerocha.netflixdb.entity.Season
@@ -171,7 +171,7 @@ class ImportNetflixDataJobConfig {
             if (reportSheetRow.category != StreamingCategory.MOVIE) return@ItemProcessor null
             if (movieRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
             logger.info("movieProcessor: ${reportSheetRow.title}")
-            reportSheetRow.toShow()
+            reportSheetRow.toMovie()
         }
 
     @Bean

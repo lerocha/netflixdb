@@ -22,16 +22,16 @@ data class ReportSheetRow(
     var duration: SummaryDuration? = null,
 )
 
-fun ReportSheetRow.toShow() =
+fun ReportSheetRow.toMovie() =
     Movie().apply {
         this.createdDate = Instant.now()
         this.modifiedDate = Instant.now()
-        this.title = this@toShow.title
-        this.originalTitle = this@toShow.originalTitle
-        this.runtime = this@toShow.runtime
-        this.releaseDate = this@toShow.releaseDate
-        this.availableGlobally = this@toShow.availableGlobally
-        this.viewSummaries.add(this@toShow.toViewSummary())
+        this.title = this@toMovie.title
+        this.originalTitle = this@toMovie.originalTitle
+        this.runtime = this@toMovie.runtime
+        this.releaseDate = this@toMovie.releaseDate
+        this.availableGlobally = this@toMovie.availableGlobally
+        this.viewSummaries.add(this@toMovie.toViewSummary())
     }.apply { this.viewSummaries.forEach { it.movie = this } }
 
 fun ReportSheetRow.toTvShow() =
