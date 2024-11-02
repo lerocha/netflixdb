@@ -2,6 +2,7 @@ package com.github.lerocha.netflixdb.batch
 
 import com.github.lerocha.netflixdb.dto.ReportSheetRow
 import com.github.lerocha.netflixdb.dto.StreamingCategory
+import com.github.lerocha.netflixdb.dto.toCategory
 import com.github.lerocha.netflixdb.dto.toSeason
 import com.github.lerocha.netflixdb.dto.toShow
 import com.github.lerocha.netflixdb.dto.toTvShow
@@ -125,24 +126,17 @@ class ImportNetflixDataJobConfig {
             setLinesToSkip(1)
             setResource(ClassPathResource("reports/What_We_Watched_A_Netflix_Engagement_Report_2024Jan-Jun.xlsx"))
             setRowMapper { rowSet ->
-                val titles = rowSet.properties["Title"]?.toString()?.split("//") ?: emptyList()
+                val titles = rowSet.getString("Title")?.split("//") ?: emptyList()
                 ReportSheetRow().apply {
                     startDate = LocalDate.parse("2024-01-01")
                     endDate = LocalDate.parse("2024-06-30")
                     duration = SummaryDuration.SEMI_ANNUALLY
-                    runtime =
-                        rowSet.properties["Runtime"]?.toString()?.let { runtime ->
-                            Duration.parseOrNull(runtime.replace(":", "h") + "m")?.inWholeMinutes
-                        }
+                    runtime = rowSet.getRuntimeInMinutes("Runtime")
                     title = titles.firstOrNull()?.trim()
                     originalTitle = titles.lastOrNull()?.trim()
-                    category = rowSet.metaData.sheetName?.getCategory()
-                    availableGlobally =
-                        rowSet.properties["Available Globally?"]?.toString() == "Yes"
-                    releaseDate =
-                        rowSet.properties["Release Date"]?.toString()?.let {
-                            if (it.isNotBlank()) LocalDate.parse(it) else null
-                        }
+                    category = rowSet.metaData.sheetName?.toCategory()
+                    availableGlobally = rowSet.getString("Available Globally?") == "Yes"
+                    releaseDate = rowSet.getString("Release Date")?.let { if (it.isNotBlank()) LocalDate.parse(it) else null }
                     hoursViewed = rowSet.getInt("Hours Viewed")
                     views = rowSet.getInt("Views")
                 }
@@ -156,20 +150,14 @@ class ImportNetflixDataJobConfig {
             setResource(ClassPathResource("reports/all-weeks-global.xlsx"))
             setRowMapper { rowSet ->
                 ReportSheetRow().apply {
-                    startDate = rowSet.properties["week"]?.toString()?.let { LocalDate.parse(it) }
-                    endDate = rowSet.properties["week"]?.toString()?.let { LocalDate.parse(it).plusDays(6) }
+                    startDate = rowSet.getString("week")?.let { LocalDate.parse(it) }
+                    endDate = rowSet.getString("week")?.let { LocalDate.parse(it).plusDays(6) }
                     duration = SummaryDuration.WEEKLY
-                    runtime =
-                        rowSet.properties["runtime"]?.toString()?.let {
-                            if (it > "") {
-                                it.toBigDecimal().multiply(60.toBigDecimal()).toLong()
-                            } else {
-                                null
-                            }
-                        }
-                    title = rowSet.properties["show_title"]?.toString()?.trim()
-                    originalTitle = rowSet.properties["show_title"]?.toString()?.trim()
-                    category = rowSet.properties["category"]?.toString()?.getCategory()
+                    runtime = rowSet.getRuntimeInMinutes("runtime")
+                    title = rowSet.getString("show_title")?.trim()
+                    originalTitle = rowSet.getString("show_title")?.trim()
+                    category = rowSet.getString("category")?.toCategory()
+                    availableGlobally = null
                     releaseDate = null
                     hoursViewed = rowSet.getInt("weekly_hours_viewed")
                     views = rowSet.getInt("weekly_views")
@@ -217,15 +205,18 @@ class ImportNetflixDataJobConfig {
             .methodName("save")
             .build()
 
-    private fun String.getCategory(): StreamingCategory? =
-        when {
-            this.contains("Film") -> StreamingCategory.MOVIE
-            this.contains("TV") -> StreamingCategory.TV_SHOW
-            else -> null
-        }
+    private fun RowSet.getString(key: String): String? = this.properties.getProperty(key)
 
     private fun RowSet.getInt(key: String): Int? =
-        this.properties[key].toString()?.replace(",", "")?.let {
+        this.getString(key)?.replace(",", "")?.let {
             if (it.isNotBlank()) it.toInt() else null
+        }
+
+    private fun RowSet.getRuntimeInMinutes(key: String): Long? =
+        this.getString(key)?.let {
+            return when {
+                it.contains(":") -> Duration.parseOrNull(it.replace(":", "h") + "m")?.inWholeMinutes
+                else -> it.toBigDecimalOrNull()?.multiply(60.toBigDecimal())?.toLong()
+            }
         }
 }

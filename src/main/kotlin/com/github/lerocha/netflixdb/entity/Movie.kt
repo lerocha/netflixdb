@@ -33,7 +33,7 @@ class Movie : AbstractEntity() {
     @Comment("Date when this title was released")
     var releaseDate: LocalDate? = null
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     @Comment("A flag that indicates if this title is available outside US")
     var availableGlobally: Boolean? = false
 
