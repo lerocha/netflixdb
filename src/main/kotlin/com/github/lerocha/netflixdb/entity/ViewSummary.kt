@@ -5,7 +5,6 @@ import jakarta.persistence.Entity
 import jakarta.persistence.EnumType
 import jakarta.persistence.Enumerated
 import jakarta.persistence.ForeignKey
-import jakarta.persistence.Index
 import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
@@ -14,10 +13,10 @@ import java.time.LocalDate
 
 @Entity
 @Table(
-    indexes = [
-        Index(name = "fk_view_summary_movie_id", columnList = "movie_id", unique = false),
-        Index(name = "fk_view_summary_season_id", columnList = "season_id", unique = false),
-    ],
+//    indexes = [
+//        Index(name = "fk_view_summary_movie_id", columnList = "movie_id", unique = false),
+//        Index(name = "fk_view_summary_season_id", columnList = "season_id", unique = false),
+//    ],
 )
 class ViewSummary : AbstractEntity() {
     @Column(nullable = false)
@@ -35,7 +34,7 @@ class ViewSummary : AbstractEntity() {
 
     @Column(nullable = true)
     @Comment("The rank during this period")
-    var rank: Int? = null
+    var viewRank: Int? = null
 
     @Column(nullable = false)
     @Comment("The total hours viewed during this period")
