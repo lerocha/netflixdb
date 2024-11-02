@@ -2,7 +2,9 @@ package com.github.lerocha.netflixdb.dto
 
 import com.github.lerocha.netflixdb.entity.Movie
 import com.github.lerocha.netflixdb.entity.Season
+import com.github.lerocha.netflixdb.entity.SummaryDuration
 import com.github.lerocha.netflixdb.entity.TvShow
+import com.github.lerocha.netflixdb.entity.ViewSummary
 import java.time.Instant
 import java.time.LocalDate
 
@@ -14,6 +16,10 @@ data class ReportSheetRow(
     var releaseDate: LocalDate? = null,
     var availableGlobally: Boolean? = false,
     var hoursViewed: Int? = null,
+    var views: Int? = null,
+    var startDate: LocalDate? = null,
+    var endDate: LocalDate? = null,
+    var duration: SummaryDuration? = null,
 )
 
 fun ReportSheetRow.toShow() =
@@ -25,7 +31,8 @@ fun ReportSheetRow.toShow() =
         this.runtime = this@toShow.runtime
         this.releaseDate = this@toShow.releaseDate
         this.availableGlobally = this@toShow.availableGlobally
-    }
+        this.viewSummaries.add(this@toShow.toViewSummary())
+    }.apply { this.viewSummaries.forEach { it.movie = this } }
 
 fun ReportSheetRow.toTvShow() =
     TvShow().apply {
@@ -54,4 +61,16 @@ fun ReportSheetRow.toSeason() =
         this.originalTitle = this@toSeason.originalTitle
         this.runtime = this@toSeason.runtime
         this.releaseDate = this@toSeason.releaseDate
+        this.viewSummaries.add(this@toSeason.toViewSummary())
+    }.apply { this.viewSummaries.forEach { it.season = this } }
+
+fun ReportSheetRow.toViewSummary() =
+    ViewSummary().apply {
+        this.createdDate = Instant.now()
+        this.modifiedDate = Instant.now()
+        this.startDate = this@toViewSummary.startDate
+        this.endDate = this@toViewSummary.endDate
+        this.duration = this@toViewSummary.duration
+        this.hoursViewed = this@toViewSummary.hoursViewed
+        this.views = this@toViewSummary.views
     }

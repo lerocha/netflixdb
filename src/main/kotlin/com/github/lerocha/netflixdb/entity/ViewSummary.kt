@@ -2,6 +2,8 @@ package com.github.lerocha.netflixdb.entity
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.ForeignKey
 import jakarta.persistence.Index
 import jakarta.persistence.JoinColumn
@@ -27,6 +29,11 @@ class ViewSummary : AbstractEntity() {
     var endDate: LocalDate? = null
 
     @Column(nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Comment("The duration of the period this summary refers to")
+    var duration: SummaryDuration? = null
+
+    @Column(nullable = true)
     @Comment("The rank during this period")
     var rank: Int? = null
 
@@ -34,13 +41,13 @@ class ViewSummary : AbstractEntity() {
     @Comment("The total hours viewed during this period")
     var hoursViewed: Int? = null
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     @Comment("The number of views during this period")
     var views: Int? = null
 
     @ManyToOne
-    @Comment("The show for this weekly summary")
-    @JoinColumn(nullable = false, foreignKey = ForeignKey(name = "fk_view_summary_movie_id"))
+    @Comment("The movie for this weekly summary")
+    @JoinColumn(nullable = true, foreignKey = ForeignKey(name = "fk_view_summary_movie_id"))
     var movie: Movie? = null
 
     @ManyToOne

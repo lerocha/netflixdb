@@ -1,8 +1,11 @@
 package com.github.lerocha.netflixdb.entity
 
+import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.FetchType
 import jakarta.persistence.Index
+import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
 import java.time.LocalDate
@@ -22,7 +25,7 @@ class Movie : AbstractEntity() {
     @Comment("The movie title in its original language")
     var originalTitle: String? = null
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     @Comment("The total runtime in minutes")
     var runtime: Long? = null
 
@@ -33,4 +36,7 @@ class Movie : AbstractEntity() {
     @Column(nullable = false)
     @Comment("A flag that indicates if this title is available outside US")
     var availableGlobally: Boolean? = false
+
+    @OneToMany(mappedBy = "movie", fetch = FetchType.LAZY, cascade = [(CascadeType.ALL)])
+    var viewSummaries: MutableList<ViewSummary> = mutableListOf()
 }

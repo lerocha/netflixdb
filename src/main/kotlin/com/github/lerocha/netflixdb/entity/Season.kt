@@ -1,5 +1,6 @@
 package com.github.lerocha.netflixdb.entity
 
+import jakarta.persistence.CascadeType
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.FetchType
@@ -32,7 +33,7 @@ class Season : AbstractEntity() {
     @Comment("The season title in its original language")
     var originalTitle: String? = null
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     @Comment("The total runtime in minutes")
     var runtime: Long? = null
 
@@ -47,4 +48,7 @@ class Season : AbstractEntity() {
 
     @OneToMany(mappedBy = "season", fetch = FetchType.LAZY)
     var episodes: MutableList<Episode> = mutableListOf()
+
+    @OneToMany(mappedBy = "season", fetch = FetchType.LAZY, cascade = [(CascadeType.ALL)])
+    var viewSummaries: MutableList<ViewSummary> = mutableListOf()
 }
