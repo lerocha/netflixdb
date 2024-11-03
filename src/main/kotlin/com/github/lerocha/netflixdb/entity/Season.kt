@@ -23,7 +23,7 @@ import java.time.LocalDate
 class Season : AbstractEntity() {
     @Column(nullable = true)
     @Comment("The season number")
-    var number: Int? = null
+    var seasonNumber: Int? = null
 
     @Column(length = 255, nullable = false)
     @Comment("The season title")

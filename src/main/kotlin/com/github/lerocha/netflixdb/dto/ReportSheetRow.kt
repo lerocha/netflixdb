@@ -53,7 +53,7 @@ fun ReportSheetRow.toSeason() =
     Season().apply {
         this.createdDate = Instant.now()
         this.modifiedDate = Instant.now()
-        this.number =
+        this.seasonNumber =
             this@toSeason.title?.split(":")?.lastOrNull()?.filter { it.isDigit() }?.let {
                 if (it.isNotBlank()) it.toInt() else null
             }

@@ -184,7 +184,7 @@ class ImportNetflixDataJobConfig {
             if (seasonRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
             logger.info("seasonProcessor: ${reportSheetRow.title}")
             reportSheetRow.toSeason().apply {
-                if (this.number is Int) {
+                if (this.seasonNumber is Int) {
                     val tvShow = reportSheetRow.toTvShow()
                     this.tvShow = tvShowRepository.findByTitle(tvShow.title!!) ?: tvShowRepository.save(tvShow)
                 }
