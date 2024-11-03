@@ -38,17 +38,9 @@ Start the database containers:
 docker compose up
 ```
 
-Build the application:
-```bash
-./gradlew clean build
-```
-
 Generate the SQL Scripts:
 ```bash
-for p in postgres mysql oracle; \
- do java -jar -Dspring.batch.job.enabled=false \
-    -Dspring.profiles.active=$p build/libs/netflixdb-0.0.1-SNAPSHOT.jar; \
-done
+./build.sh
 ```
 
 The generated SQL scripts will be in the `build/artifacts` folder:
