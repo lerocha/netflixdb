@@ -3,3 +3,11 @@ spring.datasource:
   url: jdbc:oracle:thin:@localhost:1521/FREEPDB1
   username: netflixdb
   password: netflixdb
+
+spring.jpa:
+  properties:
+    javax:
+      persistence:
+        schema-generation:
+          scripts:
+            create-target: build/artifacts/netflixdb-oracle.sql

@@ -9,7 +9,8 @@ spring.datasource:
 spring.batch:
   jdbc:
     initialize-schema: always
-
+  job:
+    enabled: true
 spring.h2.console:
   enabled: false
   path: /h2
@@ -18,6 +19,13 @@ spring.jpa:
   hibernate:
     ddlAuto: create
   properties:
+    javax:
+      persistence:
+        schema-generation:
+          scripts:
+            action: create
+            create-target: build/artifacts/netflixdb-h2.sql
     hibernate:
       show_sql: false
       format_sql: true
+  generate-ddl: true

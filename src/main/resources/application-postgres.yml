@@ -3,3 +3,11 @@ spring.datasource:
   url: jdbc:postgresql://localhost/netflixdb
   username: postgres
   password: postgres
+
+spring.jpa:
+  properties:
+    javax:
+      persistence:
+        schema-generation:
+          scripts:
+            create-target: build/artifacts/netflixdb-postgres.sql
