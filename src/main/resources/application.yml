@@ -23,7 +23,7 @@ spring.jpa:
       persistence:
         schema-generation:
           scripts:
-            action: create
+#            action: create
             create-target: build/artifacts/netflixdb-h2.sql
     hibernate:
       show_sql: false
