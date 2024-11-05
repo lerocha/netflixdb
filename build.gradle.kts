@@ -27,6 +27,7 @@ dependencies {
     implementation("org.springframework.batch.extensions:spring-batch-excel:0.1.1")
     implementation("org.apache.poi:poi:5.3.0")
     implementation("org.apache.poi:poi-ooxml:5.3.0")
+    implementation("org.hibernate.tool:hibernate-tools-orm:6.6.1.Final")
     runtimeOnly("com.h2database:h2")
     runtimeOnly("com.microsoft.sqlserver:mssql-jdbc")
     runtimeOnly("com.mysql:mysql-connector-j")
