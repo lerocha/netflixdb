@@ -7,6 +7,7 @@ import com.github.lerocha.netflixdb.entity.TvShow
 import com.github.lerocha.netflixdb.entity.ViewSummary
 import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 
 data class ReportSheetRow(
     var title: String? = null,
@@ -24,8 +25,8 @@ data class ReportSheetRow(
 
 fun ReportSheetRow.toMovie() =
     Movie().apply {
-        this.createdDate = Instant.now()
-        this.modifiedDate = Instant.now()
+        this.createdDate = now()
+        this.modifiedDate = now()
         this.title = this@toMovie.title
         this.originalTitle = this@toMovie.originalTitle
         this.runtime = this@toMovie.runtime
@@ -36,8 +37,8 @@ fun ReportSheetRow.toMovie() =
 
 fun ReportSheetRow.toTvShow() =
     TvShow().apply {
-        this.createdDate = Instant.now()
-        this.modifiedDate = Instant.now()
+        this.createdDate = now()
+        this.modifiedDate = now()
         this.title =
             this@toTvShow.title?.split(":")?.lastOrNull()?.let { last ->
                 this@toTvShow.title?.replace(":$last", "")?.trim()
@@ -51,8 +52,8 @@ fun ReportSheetRow.toTvShow() =
 
 fun ReportSheetRow.toSeason() =
     Season().apply {
-        this.createdDate = Instant.now()
-        this.modifiedDate = Instant.now()
+        this.createdDate = now()
+        this.modifiedDate = now()
         this.seasonNumber =
             this@toSeason.title?.split(":")?.lastOrNull()?.filter { it.isDigit() }?.let {
                 if (it.isNotBlank()) it.toInt() else null
@@ -66,11 +67,13 @@ fun ReportSheetRow.toSeason() =
 
 fun ReportSheetRow.toViewSummary() =
     ViewSummary().apply {
-        this.createdDate = Instant.now()
-        this.modifiedDate = Instant.now()
+        this.createdDate = now()
+        this.modifiedDate = now()
         this.startDate = this@toViewSummary.startDate
         this.endDate = this@toViewSummary.endDate
         this.duration = this@toViewSummary.duration
         this.hoursViewed = this@toViewSummary.hoursViewed
         this.views = this@toViewSummary.views
     }
+
+fun now(): Instant = LocalDate.of(2024, 1, 1).atStartOfDay().toInstant(ZoneOffset.UTC)

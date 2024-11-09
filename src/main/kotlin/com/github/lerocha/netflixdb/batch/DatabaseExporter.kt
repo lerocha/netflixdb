@@ -5,6 +5,8 @@ import com.github.lerocha.netflixdb.entity.Movie
 import com.github.lerocha.netflixdb.entity.Season
 import com.github.lerocha.netflixdb.entity.TvShow
 import com.github.lerocha.netflixdb.entity.ViewSummary
+import com.github.lerocha.netflixdb.repository.MovieRepository
+import com.github.lerocha.netflixdb.strategy.DatabaseStrategyFactory
 import org.hibernate.boot.MetadataSources
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder
 import org.hibernate.tool.hbm2ddl.SchemaExport
@@ -23,6 +25,8 @@ import java.util.EnumSet
 @Component
 class DatabaseExporter(
     private val dataSourceProperties: DataSourceProperties,
+    private val databaseStrategyFactory: DatabaseStrategyFactory,
+    private val movieRepository: MovieRepository,
 ) : Tasklet {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -94,7 +98,23 @@ class DatabaseExporter(
         databaseName: String,
         filename: String,
     ) {
+        val databaseStrategy = databaseStrategyFactory.getInstance(databaseName)
+        val stringBuilder = StringBuilder()
+
+        stringBuilder.appendLine(printHeader("movies table data"))
+        movieRepository.findAll().forEach { movie ->
+            stringBuilder.appendLine(databaseStrategy.getInsertStatement(movie))
+        }
+
         val path = "build/$filename"
+        File(path).appendText(stringBuilder.toString())
         logger.info("Exported data for $databaseName to $path")
     }
+
+    private fun printHeader(text: String) =
+        """
+        /**********************************************************************************
+          $text
+        ***********************************************************************************/
+        """.trimIndent()
 }
