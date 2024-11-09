@@ -25,6 +25,7 @@ import org.springframework.batch.extensions.excel.support.rowset.RowSet
 import org.springframework.batch.item.ItemProcessor
 import org.springframework.batch.item.data.RepositoryItemWriter
 import org.springframework.batch.item.data.builder.RepositoryItemWriterBuilder
+import org.springframework.boot.autoconfigure.orm.jpa.HibernateProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.io.ClassPathResource
@@ -39,20 +40,28 @@ class ImportNetflixDataJobConfig {
     @Bean
     fun importNetflixDataJob(
         jobRepository: JobRepository,
+        hibernateProperties: HibernateProperties,
         importMoviesFromEngagementReportStep: Step,
         importSeasonsFromEngagementReportStep: Step,
         importMoviesFromTop10ListStep: Step,
         importSeasonsFromTop10ListStep: Step,
         exportDatabaseStep: Step,
     ): Job =
-        JobBuilder("importNetflixDataJob", jobRepository)
-            .incrementer(RunIdIncrementer())
-            .start(importMoviesFromEngagementReportStep)
-            .next(importMoviesFromTop10ListStep)
-            .next(importSeasonsFromEngagementReportStep)
-            .next(importSeasonsFromTop10ListStep)
-            .next(exportDatabaseStep)
-            .build()
+        if (hibernateProperties.ddlAuto == "create") {
+            JobBuilder("importNetflixDataJob", jobRepository)
+                .incrementer(RunIdIncrementer())
+                .start(importMoviesFromEngagementReportStep)
+                .next(importMoviesFromTop10ListStep)
+                .next(importSeasonsFromEngagementReportStep)
+                .next(importSeasonsFromTop10ListStep)
+                .next(exportDatabaseStep)
+                .build()
+        } else {
+            JobBuilder("importNetflixDataJob", jobRepository)
+                .incrementer(RunIdIncrementer())
+                .start(exportDatabaseStep)
+                .build()
+        }
 
     @Bean
     fun importMoviesFromEngagementReportStep(
