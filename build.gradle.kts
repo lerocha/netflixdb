@@ -28,6 +28,7 @@ dependencies {
     implementation("org.apache.poi:poi:5.3.0")
     implementation("org.apache.poi:poi-ooxml:5.3.0")
     implementation("org.hibernate.tool:hibernate-tools-orm:6.6.1.Final")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.17.2")
     runtimeOnly("com.h2database:h2")
     runtimeOnly("com.microsoft.sqlserver:mssql-jdbc")
     runtimeOnly("com.mysql:mysql-connector-j")

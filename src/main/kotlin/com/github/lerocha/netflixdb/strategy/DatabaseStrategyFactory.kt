@@ -13,6 +13,7 @@ class DatabaseStrategyFactory(
             "oracle" -> oracleStrategy
             "mysql" -> mysqlStrategy
             "postgresql" -> postgresStrategy
+            "h2" -> postgresStrategy
             else -> throw IllegalArgumentException("Not supported database $databaseName")
         }
     }

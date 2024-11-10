@@ -6,6 +6,7 @@ import com.github.lerocha.netflixdb.entity.Season
 import com.github.lerocha.netflixdb.entity.TvShow
 import com.github.lerocha.netflixdb.entity.ViewSummary
 import com.github.lerocha.netflixdb.repository.MovieRepository
+import com.github.lerocha.netflixdb.repository.TvShowRepository
 import com.github.lerocha.netflixdb.strategy.DatabaseStrategyFactory
 import org.hibernate.boot.MetadataSources
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder
@@ -27,6 +28,7 @@ class DatabaseExporter(
     private val dataSourceProperties: DataSourceProperties,
     private val databaseStrategyFactory: DatabaseStrategyFactory,
     private val movieRepository: MovieRepository,
+    private val tvShowRepository: TvShowRepository,
 ) : Tasklet {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -101,9 +103,14 @@ class DatabaseExporter(
         val databaseStrategy = databaseStrategyFactory.getInstance(databaseName)
         val stringBuilder = StringBuilder()
 
-        stringBuilder.appendLine(printHeader("movies table data"))
+        stringBuilder.appendLine().appendLine(printHeader("movies table data"))
         movieRepository.findAll().forEach { movie ->
             stringBuilder.appendLine(databaseStrategy.getInsertStatement(movie))
+        }
+
+        stringBuilder.appendLine().appendLine(printHeader("tv show table data"))
+        tvShowRepository.findAll().forEach { tvShow ->
+            stringBuilder.appendLine(databaseStrategy.getInsertStatement(tvShow))
         }
 
         val path = "build/$filename"
