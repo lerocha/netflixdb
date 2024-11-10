@@ -5,9 +5,11 @@ import jakarta.persistence.ManyToMany
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
 import jakarta.persistence.OneToOne
+import org.hibernate.boot.model.naming.Identifier
+import org.hibernate.boot.model.naming.PhysicalNamingStrategy
 
 interface DatabaseStrategy {
-    fun getName(name: String): String
+    fun getPhysicalNamingStrategy(): PhysicalNamingStrategy
 
     fun <T> getSqlValues(vararg properties: T): String
 
@@ -31,8 +33,11 @@ interface DatabaseStrategy {
                 .filter { methods.containsKey("get${it.name.lowercase()}") }
                 .associate { it.name to methods["get${it.name.lowercase()}"] }
 
-        val tableName = getName(entity.javaClass.simpleName)
-        val names = properties.keys.joinToString(", ") { getName(it) }
+        val tableName = getPhysicalNamingStrategy().toPhysicalTableName(Identifier(entity.javaClass.simpleName, false), null).text
+        val names =
+            properties.keys.joinToString(", ") {
+                getPhysicalNamingStrategy().toPhysicalColumnName(Identifier(it, false), null).text
+            }
         val values = getSqlValues(*properties.values.toTypedArray())
         return "INSERT INTO $tableName ($names) VALUES ($values);"
     }

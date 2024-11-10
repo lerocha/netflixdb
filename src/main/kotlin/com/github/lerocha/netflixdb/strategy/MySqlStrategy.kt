@@ -1,7 +1,8 @@
 package com.github.lerocha.netflixdb.strategy
 
-import com.fasterxml.jackson.databind.PropertyNamingStrategies
 import com.github.lerocha.netflixdb.entity.AbstractEntity
+import org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
+import org.hibernate.boot.model.naming.PhysicalNamingStrategy
 import org.springframework.stereotype.Component
 import java.time.Instant
 import java.time.LocalDate
@@ -14,9 +15,10 @@ class MySqlStrategy : DatabaseStrategy {
     private val instantFormatter =
         DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss.SSSSSS +00:00")
             .withZone(ZoneOffset.UTC)
-    private val namingStrategy: PropertyNamingStrategies.NamingBase = PropertyNamingStrategies.SnakeCaseStrategy()
 
-    override fun getName(name: String): String = namingStrategy.translate(name)
+    private val physicalNamingStrategy = CamelCaseToUnderscoresNamingStrategy()
+
+    override fun getPhysicalNamingStrategy(): PhysicalNamingStrategy = physicalNamingStrategy
 
     override fun <T> getSqlValues(vararg properties: T): String {
         return listOf(*properties).map { property ->

@@ -57,6 +57,8 @@ class DatabaseExporter(
                 "hibernate.connection.password" to dataSourceProperties.password,
                 "hibernate.hbm2ddl.auto" to "create",
                 "show_sql" to "true",
+                "hibernate.implicit_naming_strategy" to "org.springframework.boot.orm.jpa.hibernate.SpringImplicitNamingStrategy",
+                "hibernate.physical_naming_strategy" to "org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy",
             )
 
         val metadata =
