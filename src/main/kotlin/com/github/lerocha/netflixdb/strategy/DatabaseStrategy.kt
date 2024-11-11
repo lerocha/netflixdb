@@ -14,6 +14,48 @@ interface DatabaseStrategy {
     fun <T> getSqlValues(vararg properties: T): String
 
     fun <T : AbstractEntity> getInsertStatement(entity: T): String {
+        val properties = getProperties(entity)
+        val tableName = getPhysicalNamingStrategy().toPhysicalTableName(Identifier(entity.javaClass.simpleName, false), null).text
+        val names = properties.keys.joinToString(", ")
+        val values = getSqlValues(*properties.values.toTypedArray())
+        return "INSERT INTO $tableName ($names) VALUES ($values);"
+    }
+
+    fun <T : AbstractEntity> getInsertStatement(entities: List<T>): String {
+        if (entities.isEmpty()) return ""
+        val properties = getProperties(entities.first())
+        val tableName = getPhysicalNamingStrategy().toPhysicalTableName(Identifier(entities.first().javaClass.simpleName, false), null).text
+        val names = properties.keys.joinToString(", ")
+        return StringBuilder()
+            .appendLine("INSERT INTO $tableName ($names) VALUES")
+            .append(
+                entities.joinToString(",\n") { entity ->
+                    val properties = getProperties(entity)
+                    val values = getSqlValues(*properties.values.toTypedArray())
+                    "($values)"
+                },
+            )
+            .appendLine(";")
+            .toString()
+    }
+
+    fun <T : AbstractEntity> getProperties(entity: T): Map<String, Any?> {
+        val values =
+            (entity.javaClass.superclass.declaredMethods + entity.javaClass.declaredMethods)
+                .filter { it.name.startsWith("get") }
+                .associate { it.name.lowercase() to it.invoke(entity) }
+
+        return (entity.javaClass.superclass.declaredFields.toList() + entity.javaClass.declaredFields.toList())
+            .filter { it.annotations.any { a -> !relationshipAnnotations.contains(a.annotationClass.java) } }
+            .filter { values.containsKey("get${it.name.lowercase()}") }
+            .associate {
+                val identifier = Identifier(it.name, false)
+                val name = getPhysicalNamingStrategy().toPhysicalColumnName(identifier, null).text
+                name to values["get${it.name.lowercase()}"]
+            }
+    }
+
+    companion object {
         val relationshipAnnotations =
             setOf(
                 OneToOne::class.java,
@@ -21,28 +63,5 @@ interface DatabaseStrategy {
                 ManyToOne::class.java,
                 ManyToMany::class.java,
             )
-
-        val methods =
-            (entity.javaClass.superclass.declaredMethods + entity.javaClass.declaredMethods)
-                .filter { it.name.startsWith("get") }
-                .associate { it.name.lowercase() to it.invoke(entity) }
-
-        val properties =
-            (entity.javaClass.superclass.declaredFields.toList() + entity.javaClass.declaredFields.toList())
-                .filter { it.annotations.any { a -> !relationshipAnnotations.contains(a.annotationClass.java) } }
-                .filter { methods.containsKey("get${it.name.lowercase()}") }
-                .associate { it.name to methods["get${it.name.lowercase()}"] }
-
-        val tableName = getPhysicalNamingStrategy().toPhysicalTableName(Identifier(entity.javaClass.simpleName, false), null).text
-        val names =
-            properties.keys.joinToString(", ") {
-                getPhysicalNamingStrategy().toPhysicalColumnName(Identifier(it, false), null).text
-            }
-        val values = getSqlValues(*properties.values.toTypedArray())
-        return "INSERT INTO $tableName ($names) VALUES ($values);"
-    }
-
-    fun <T : AbstractEntity> getInsertStatement(entities: List<T>): String {
-        TODO("Not yet implemented")
     }
 }

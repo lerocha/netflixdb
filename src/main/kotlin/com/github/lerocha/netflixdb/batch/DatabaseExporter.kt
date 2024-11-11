@@ -32,6 +32,10 @@ class DatabaseExporter(
 ) : Tasklet {
     private val logger = LoggerFactory.getLogger(javaClass)
 
+    companion object {
+        const val CHUNK_SIZE = 100
+    }
+
     override fun execute(
         contribution: StepContribution,
         chunkContext: ChunkContext,
@@ -106,13 +110,13 @@ class DatabaseExporter(
         val stringBuilder = StringBuilder()
 
         stringBuilder.appendLine().appendLine(printHeader("movies table data"))
-        movieRepository.findAll().forEach { movie ->
-            stringBuilder.appendLine(databaseStrategy.getInsertStatement(movie))
+        movieRepository.findAll().chunked(CHUNK_SIZE).forEach { chunk ->
+            stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
         }
 
         stringBuilder.appendLine().appendLine(printHeader("tv show table data"))
-        tvShowRepository.findAll().forEach { tvShow ->
-            stringBuilder.appendLine(databaseStrategy.getInsertStatement(tvShow))
+        tvShowRepository.findAll().chunked(CHUNK_SIZE).forEach { chunk ->
+            stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
         }
 
         val path = "build/$filename"
