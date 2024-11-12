@@ -13,7 +13,7 @@ import java.util.UUID
 @Component
 class MySqlStrategy : DatabaseStrategy {
     private val instantFormatter =
-        DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss.SSSSSS +00:00")
+        DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss.SSSSSS")
             .withZone(ZoneOffset.UTC)
 
     private val physicalNamingStrategy = CamelCaseToUnderscoresNamingStrategy()
@@ -27,8 +27,8 @@ class MySqlStrategy : DatabaseStrategy {
                 is String -> "'${property.replace("'", "''")}'"
                 is Instant -> "'${instantFormatter.format(property)}'"
                 is LocalDate -> "'$property'"
-                is UUID -> "0x00${property.toString().uppercase().replace("-", "")}"
-                is AbstractEntity -> "0x00${property.id.toString().uppercase().replace("-", "")}"
+                is UUID -> "0x${property.toString().uppercase().replace("-", "")}"
+                is AbstractEntity -> "0x${property.id.toString().uppercase().replace("-", "")}"
                 else -> property ?: "null"
             }
         }.joinToString(", ")
