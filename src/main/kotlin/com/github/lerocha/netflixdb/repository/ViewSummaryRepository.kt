@@ -6,4 +6,4 @@ import org.springframework.stereotype.Repository
 import java.util.UUID
 
 @Repository
-interface WeeklySummaryRepository : JpaRepository<ViewSummary, UUID>
+interface ViewSummaryRepository : JpaRepository<ViewSummary, UUID>

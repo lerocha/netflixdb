@@ -8,6 +8,7 @@ import com.github.lerocha.netflixdb.entity.ViewSummary
 import com.github.lerocha.netflixdb.repository.MovieRepository
 import com.github.lerocha.netflixdb.repository.SeasonRepository
 import com.github.lerocha.netflixdb.repository.TvShowRepository
+import com.github.lerocha.netflixdb.repository.ViewSummaryRepository
 import com.github.lerocha.netflixdb.strategy.DatabaseStrategyFactory
 import org.hibernate.boot.MetadataSources
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder
@@ -31,6 +32,7 @@ class DatabaseExporter(
     private val movieRepository: MovieRepository,
     private val tvShowRepository: TvShowRepository,
     private val seasonRepository: SeasonRepository,
+    private val viewSummaryRepository: ViewSummaryRepository,
 ) : Tasklet {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -123,6 +125,11 @@ class DatabaseExporter(
 
         stringBuilder.appendLine().appendLine(printHeader("Season data"))
         seasonRepository.findAll().chunked(CHUNK_SIZE).forEach { chunk ->
+            stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
+        }
+
+        stringBuilder.appendLine().appendLine(printHeader("ViewSummary data"))
+        viewSummaryRepository.findAll().chunked(CHUNK_SIZE).forEach { chunk ->
             stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
         }
 
