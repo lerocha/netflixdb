@@ -46,22 +46,18 @@ interface DatabaseStrategy {
                 .associate { it.name.lowercase() to it.invoke(entity) }
 
         return (entity.javaClass.superclass.declaredFields.toList() + entity.javaClass.declaredFields.toList())
-            .filter { it.annotations.any { a -> !relationshipAnnotations.contains(a.annotationClass.java) } }
+            .filter { it.annotations.any { a -> !toManyAnnotations.contains(a.annotationClass.java) } }
             .filter { values.containsKey("get${it.name.lowercase()}") }
             .associate {
-                val identifier = Identifier(it.name, false)
+                val idSuffix = if (it.annotations.any { a -> toOneAnnotations.contains(a.annotationClass.java) }) "Id" else ""
+                val identifier = Identifier("${it.name}$idSuffix", false)
                 val name = getPhysicalNamingStrategy().toPhysicalColumnName(identifier, null).text
                 name to values["get${it.name.lowercase()}"]
             }
     }
 
     companion object {
-        val relationshipAnnotations =
-            setOf(
-                OneToOne::class.java,
-                OneToMany::class.java,
-                ManyToOne::class.java,
-                ManyToMany::class.java,
-            )
+        val toManyAnnotations = setOf(OneToMany::class.java, ManyToMany::class.java)
+        val toOneAnnotations = setOf(OneToOne::class.java, ManyToOne::class.java)
     }
 }

@@ -6,6 +6,7 @@ import com.github.lerocha.netflixdb.entity.Season
 import com.github.lerocha.netflixdb.entity.TvShow
 import com.github.lerocha.netflixdb.entity.ViewSummary
 import com.github.lerocha.netflixdb.repository.MovieRepository
+import com.github.lerocha.netflixdb.repository.SeasonRepository
 import com.github.lerocha.netflixdb.repository.TvShowRepository
 import com.github.lerocha.netflixdb.strategy.DatabaseStrategyFactory
 import org.hibernate.boot.MetadataSources
@@ -29,6 +30,7 @@ class DatabaseExporter(
     private val databaseStrategyFactory: DatabaseStrategyFactory,
     private val movieRepository: MovieRepository,
     private val tvShowRepository: TvShowRepository,
+    private val seasonRepository: SeasonRepository,
 ) : Tasklet {
     private val logger = LoggerFactory.getLogger(javaClass)
 
@@ -109,13 +111,18 @@ class DatabaseExporter(
         val databaseStrategy = databaseStrategyFactory.getInstance(databaseName)
         val stringBuilder = StringBuilder()
 
-        stringBuilder.appendLine().appendLine(printHeader("movies table data"))
+        stringBuilder.appendLine().appendLine(printHeader("Movies data"))
         movieRepository.findAll().chunked(CHUNK_SIZE).forEach { chunk ->
             stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
         }
 
-        stringBuilder.appendLine().appendLine(printHeader("tv show table data"))
+        stringBuilder.appendLine().appendLine(printHeader("TV Show data"))
         tvShowRepository.findAll().chunked(CHUNK_SIZE).forEach { chunk ->
+            stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
+        }
+
+        stringBuilder.appendLine().appendLine(printHeader("Season data"))
+        seasonRepository.findAll().chunked(CHUNK_SIZE).forEach { chunk ->
             stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
         }
 
