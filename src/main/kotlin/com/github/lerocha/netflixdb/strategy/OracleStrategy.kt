@@ -23,6 +23,7 @@ class OracleStrategy : DatabaseStrategy {
     override fun <T> getSqlValues(vararg properties: T): String {
         return listOf(*properties).map { property ->
             when (property) {
+                is Enum<*> -> "'$property'"
                 is Boolean -> if (property) "1" else "0"
                 is String -> "'${property.replace("'", "''")}'"
                 is Instant -> "'${instantFormatter.format(property)}'"

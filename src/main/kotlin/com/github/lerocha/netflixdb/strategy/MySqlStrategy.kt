@@ -23,6 +23,7 @@ class MySqlStrategy : DatabaseStrategy {
     override fun <T> getSqlValues(vararg properties: T): String {
         return listOf(*properties).map { property ->
             when (property) {
+                is Enum<*> -> "'$property'"
                 is String -> "'${property.replace("'", "''")}'"
                 is Instant -> "'${instantFormatter.format(property)}'"
                 is LocalDate -> "'$property'"
