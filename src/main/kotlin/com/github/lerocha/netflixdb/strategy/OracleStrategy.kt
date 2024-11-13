@@ -27,7 +27,7 @@ class OracleStrategy : DatabaseStrategy {
                 is Boolean -> if (property) "1" else "0"
                 is String -> "'${property.replace("'", "''")}'"
                 is Instant -> "timestamp '${instantFormatter.format(property)}'"
-                is LocalDate -> "'$property'"
+                is LocalDate -> "date '$property'"
                 is UUID -> "'${property.toString().uppercase().replace("-", "")}'"
                 is AbstractEntity -> "'${property.id.toString().uppercase().replace("-", "")}'"
                 else -> property ?: "null"
