@@ -13,7 +13,7 @@ import java.util.UUID
 @Component
 class OracleStrategy : DatabaseStrategy {
     private val instantFormatter =
-        DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss.SSSSSS +00:00")
+        DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss.SSS")
             .withZone(ZoneOffset.UTC)
 
     private val physicalNamingStrategy = CamelCaseToUnderscoresNamingStrategy()
@@ -26,12 +26,18 @@ class OracleStrategy : DatabaseStrategy {
                 is Enum<*> -> "'$property'"
                 is Boolean -> if (property) "1" else "0"
                 is String -> "'${property.replace("'", "''")}'"
-                is Instant -> "'${instantFormatter.format(property)}'"
+                is Instant -> "timestamp '${instantFormatter.format(property)}'"
                 is LocalDate -> "'$property'"
                 is UUID -> "'${property.toString().uppercase().replace("-", "")}'"
                 is AbstractEntity -> "'${property.id.toString().uppercase().replace("-", "")}'"
                 else -> property ?: "null"
             }
         }.joinToString(", ")
+    }
+
+    override fun <T : AbstractEntity> getInsertStatement(entities: List<T>): String {
+        val stringBuilder = StringBuilder()
+        entities.map { entity -> getInsertStatement(entity) }.forEach { stringBuilder.appendLine(it) }
+        return stringBuilder.toString()
     }
 }

@@ -13,7 +13,7 @@ import java.util.UUID
 @Component
 class MySqlStrategy : DatabaseStrategy {
     private val instantFormatter =
-        DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss.SSSSSS")
+        DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss.SSS")
             .withZone(ZoneOffset.UTC)
 
     private val physicalNamingStrategy = CamelCaseToUnderscoresNamingStrategy()
