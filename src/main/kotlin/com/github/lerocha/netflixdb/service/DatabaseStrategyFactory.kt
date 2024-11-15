@@ -1,4 +1,4 @@
-package com.github.lerocha.netflixdb.strategy
+package com.github.lerocha.netflixdb.service
 
 import org.springframework.stereotype.Component
 

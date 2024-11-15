@@ -1,4 +1,4 @@
-package com.github.lerocha.netflixdb.strategy
+package com.github.lerocha.netflixdb.service
 
 import com.github.lerocha.netflixdb.entity.AbstractEntity
 import org.hibernate.boot.model.naming.CamelCaseToUnderscoresNamingStrategy
@@ -11,7 +11,7 @@ import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 @Component
-class OracleStrategy : DatabaseStrategy {
+class MySqlStrategy : DatabaseStrategy {
     private val instantFormatter =
         DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm:ss.SSS")
             .withZone(ZoneOffset.UTC)
@@ -24,20 +24,13 @@ class OracleStrategy : DatabaseStrategy {
         return listOf(*properties).map { property ->
             when (property) {
                 is Enum<*> -> "'$property'"
-                is Boolean -> if (property) "1" else "0"
                 is String -> "'${property.replace("'", "''")}'"
-                is Instant -> "timestamp '${instantFormatter.format(property)}'"
-                is LocalDate -> "date '$property'"
-                is UUID -> "'${property.toString().uppercase().replace("-", "")}'"
-                is AbstractEntity -> "'${property.id.toString().uppercase().replace("-", "")}'"
+                is Instant -> "'${instantFormatter.format(property)}'"
+                is LocalDate -> "'$property'"
+                is UUID -> "0x${property.toString().uppercase().replace("-", "")}"
+                is AbstractEntity -> "0x${property.id.toString().uppercase().replace("-", "")}"
                 else -> property ?: "null"
             }
         }.joinToString(", ")
-    }
-
-    override fun <T : AbstractEntity> getInsertStatement(entities: List<T>): String {
-        val stringBuilder = StringBuilder()
-        entities.map { entity -> getInsertStatement(entity) }.forEach { stringBuilder.appendLine(it) }
-        return stringBuilder.toString()
     }
 }

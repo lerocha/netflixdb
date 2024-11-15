@@ -1,4 +1,4 @@
-package com.github.lerocha.netflixdb.batch
+package com.github.lerocha.netflixdb.service
 
 import com.github.lerocha.netflixdb.entity.Episode
 import com.github.lerocha.netflixdb.entity.Movie
@@ -9,47 +9,30 @@ import com.github.lerocha.netflixdb.repository.MovieRepository
 import com.github.lerocha.netflixdb.repository.SeasonRepository
 import com.github.lerocha.netflixdb.repository.TvShowRepository
 import com.github.lerocha.netflixdb.repository.ViewSummaryRepository
-import com.github.lerocha.netflixdb.strategy.DatabaseStrategyFactory
 import org.hibernate.boot.MetadataSources
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder
 import org.hibernate.tool.hbm2ddl.SchemaExport
 import org.hibernate.tool.schema.TargetType
 import org.slf4j.LoggerFactory
-import org.springframework.batch.core.StepContribution
-import org.springframework.batch.core.scope.context.ChunkContext
-import org.springframework.batch.core.step.tasklet.Tasklet
-import org.springframework.batch.repeat.RepeatStatus
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties
-import org.springframework.stereotype.Component
+import org.springframework.stereotype.Service
 import java.io.File
 import java.time.OffsetDateTime
 import java.util.EnumSet
 
-@Component
-class DatabaseExporter(
+@Service
+class DatabaseExportService(
     private val dataSourceProperties: DataSourceProperties,
     private val databaseStrategyFactory: DatabaseStrategyFactory,
     private val movieRepository: MovieRepository,
     private val tvShowRepository: TvShowRepository,
     private val seasonRepository: SeasonRepository,
     private val viewSummaryRepository: ViewSummaryRepository,
-) : Tasklet {
+) {
     private val logger = LoggerFactory.getLogger(javaClass)
 
     companion object {
         const val CHUNK_SIZE = 100
-    }
-
-    override fun execute(
-        contribution: StepContribution,
-        chunkContext: ChunkContext,
-    ): RepeatStatus? {
-        val databaseName = dataSourceProperties.url.replace("jdbc:", "").split(":").first()
-        val filename = "netflixdb-$databaseName.sql"
-        exportSchema(databaseName, filename)
-        exportData(databaseName, filename)
-        logger.info("${chunkContext.stepContext.jobName}.${contribution.stepExecution.stepName}: database has been exported")
-        return RepeatStatus.FINISHED
     }
 
     fun exportSchema(

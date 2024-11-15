@@ -12,6 +12,7 @@ import com.github.lerocha.netflixdb.entity.SummaryDuration
 import com.github.lerocha.netflixdb.repository.MovieRepository
 import com.github.lerocha.netflixdb.repository.SeasonRepository
 import com.github.lerocha.netflixdb.repository.TvShowRepository
+import com.github.lerocha.netflixdb.service.DatabaseExportService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import org.springframework.batch.core.Job
@@ -25,6 +26,8 @@ import org.springframework.batch.extensions.excel.support.rowset.RowSet
 import org.springframework.batch.item.ItemProcessor
 import org.springframework.batch.item.data.RepositoryItemWriter
 import org.springframework.batch.item.data.builder.RepositoryItemWriterBuilder
+import org.springframework.batch.repeat.RepeatStatus
+import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -135,10 +138,18 @@ class CreateNetflixDatabaseJobConfig {
     fun exportDatabaseStep(
         jobRepository: JobRepository,
         transactionManager: PlatformTransactionManager,
-        databaseExporter: DatabaseExporter,
+        dataSourceProperties: DataSourceProperties,
+        databaseExportService: DatabaseExportService,
     ): Step =
         StepBuilder("exportDatabaseStep", jobRepository)
-            .tasklet(databaseExporter, transactionManager)
+            .tasklet({ contribution, chunkContext ->
+                val databaseName = dataSourceProperties.url.replace("jdbc:", "").split(":").first()
+                val filename = "netflixdb-$databaseName.sql"
+                databaseExportService.exportSchema(databaseName, filename)
+                databaseExportService.exportData(databaseName, filename)
+                logger.info("${chunkContext.stepContext.jobName}.${contribution.stepExecution.stepName}: database has been exported")
+                RepeatStatus.FINISHED
+            }, transactionManager)
             .build()
 
     @Bean
