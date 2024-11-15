@@ -34,11 +34,11 @@ import java.time.LocalDate
 import kotlin.time.Duration
 
 @Configuration
-class ImportNetflixDataJobConfig {
+class CreateNetflixDatabaseJobConfig {
     private val logger: Logger = LoggerFactory.getLogger(javaClass)
 
     @Bean
-    fun importNetflixDataJob(
+    fun createNetflixDatabaseJob(
         jobRepository: JobRepository,
         hibernateProperties: HibernateProperties,
         importMoviesFromEngagementReportStep: Step,
@@ -48,7 +48,7 @@ class ImportNetflixDataJobConfig {
         exportDatabaseStep: Step,
     ): Job =
         if (hibernateProperties.ddlAuto == "create") {
-            JobBuilder("importNetflixDataJob", jobRepository)
+            JobBuilder("createNetflixDatabaseJob", jobRepository)
                 .incrementer(RunIdIncrementer())
                 .start(importMoviesFromEngagementReportStep)
                 .next(importMoviesFromTop10ListStep)
@@ -57,7 +57,7 @@ class ImportNetflixDataJobConfig {
                 .next(exportDatabaseStep)
                 .build()
         } else {
-            JobBuilder("importNetflixDataJob", jobRepository)
+            JobBuilder("createNetflixDatabaseJob", jobRepository)
                 .incrementer(RunIdIncrementer())
                 .start(exportDatabaseStep)
                 .build()
