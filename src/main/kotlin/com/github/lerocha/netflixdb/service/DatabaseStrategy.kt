@@ -11,6 +11,8 @@ import org.hibernate.boot.model.naming.PhysicalNamingStrategy
 interface DatabaseStrategy {
     fun getPhysicalNamingStrategy(): PhysicalNamingStrategy
 
+    fun getInitDatabase(): String = ""
+
     fun <T> getSqlValues(vararg properties: T): String
 
     fun <T : AbstractEntity> getInsertStatement(entity: T): String {

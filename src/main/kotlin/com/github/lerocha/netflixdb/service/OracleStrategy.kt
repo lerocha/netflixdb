@@ -20,6 +20,13 @@ class OracleStrategy : DatabaseStrategy {
 
     override fun getPhysicalNamingStrategy(): PhysicalNamingStrategy = physicalNamingStrategy
 
+    override fun getInitDatabase(): String {
+        return """
+            ALTER SESSION SET CONTAINER=FREEPDB1;
+            ALTER SESSION SET CURRENT_SCHEMA=netflixdb;
+            """
+    }
+
     override fun <T> getSqlValues(vararg properties: T): String {
         return listOf(*properties).map { property ->
             when (property) {
