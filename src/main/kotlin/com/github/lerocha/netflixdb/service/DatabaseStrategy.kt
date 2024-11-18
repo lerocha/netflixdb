@@ -1,6 +1,7 @@
 package com.github.lerocha.netflixdb.service
 
 import com.github.lerocha.netflixdb.entity.AbstractEntity
+import jakarta.persistence.GeneratedValue
 import jakarta.persistence.ManyToMany
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
@@ -48,10 +49,10 @@ interface DatabaseStrategy {
                 .associate { it.name.lowercase() to it.invoke(entity) }
 
         return (entity.javaClass.superclass.declaredFields.toList() + entity.javaClass.declaredFields.toList())
-            .filter { it.annotations.any { a -> !toManyAnnotations.contains(a.annotationClass.java) } }
+            .filter { !it.annotations.any { a -> ignorePropertyAnnotations.contains(a.annotationClass.java) } }
             .filter { values.containsKey("get${it.name.lowercase()}") }
             .associate {
-                val idSuffix = if (it.annotations.any { a -> toOneAnnotations.contains(a.annotationClass.java) }) "Id" else ""
+                val idSuffix = if (it.annotations.any { a -> foreignKeyAnnotations.contains(a.annotationClass.java) }) "Id" else ""
                 val identifier = Identifier("${it.name}$idSuffix", false)
                 val name = getPhysicalNamingStrategy().toPhysicalColumnName(identifier, null).text
                 name to values["get${it.name.lowercase()}"]
@@ -59,7 +60,7 @@ interface DatabaseStrategy {
     }
 
     companion object {
-        val toManyAnnotations = setOf(OneToMany::class.java, ManyToMany::class.java)
-        val toOneAnnotations = setOf(OneToOne::class.java, ManyToOne::class.java)
+        val ignorePropertyAnnotations = setOf(OneToMany::class.java, ManyToMany::class.java, GeneratedValue::class.java)
+        val foreignKeyAnnotations = setOf(OneToOne::class.java, ManyToOne::class.java)
     }
 }
