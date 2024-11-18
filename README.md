@@ -35,7 +35,7 @@ Download the SQL scripts from the [latest release](../../releases) assets. One o
 
 Start the database containers:
 ```bash
-docker compose up
+docker compose up -d
 ```
 
 Generate the SQL Scripts:
