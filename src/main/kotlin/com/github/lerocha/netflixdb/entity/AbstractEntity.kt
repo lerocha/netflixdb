@@ -22,11 +22,11 @@ abstract class AbstractEntity {
 
     @CreatedDate
     @Column(nullable = false)
-    @Comment("The date and time when this record was created")
+    @Comment("Date when this record was created")
     var createdDate: Instant? = null
 
     @LastModifiedDate
     @Column(nullable = false)
-    @Comment("The date and time when this record was last modified")
+    @Comment("Date when this record was last modified")
     var modifiedDate: Instant? = null
 }
