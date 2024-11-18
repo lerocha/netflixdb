@@ -39,6 +39,8 @@ import kotlin.time.Duration
 @Configuration
 class CreateNetflixDatabaseJobConfig {
     private val logger: Logger = LoggerFactory.getLogger(javaClass)
+    private val movieTitles: MutableSet<String> = mutableSetOf()
+    private val seasonTitles: MutableSet<String> = mutableSetOf()
 
     @Bean
     fun createNetflixDatabaseJob(
@@ -201,7 +203,9 @@ class CreateNetflixDatabaseJobConfig {
     fun movieProcessor(movieRepository: MovieRepository): ItemProcessor<ReportSheetRow, Movie> =
         ItemProcessor<ReportSheetRow, Movie> { reportSheetRow ->
             if (reportSheetRow.category != StreamingCategory.MOVIE) return@ItemProcessor null
+            if (movieTitles.contains(reportSheetRow.title)) return@ItemProcessor null
             if (movieRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
+            movieTitles.add(reportSheetRow.title!!)
             logger.info("movieProcessor: ${reportSheetRow.title}")
             reportSheetRow.toMovie()
         }
@@ -213,7 +217,9 @@ class CreateNetflixDatabaseJobConfig {
     ): ItemProcessor<ReportSheetRow, Season> =
         ItemProcessor<ReportSheetRow, Season> { reportSheetRow ->
             if (reportSheetRow.category != StreamingCategory.TV_SHOW) return@ItemProcessor null
+            if (seasonTitles.contains(reportSheetRow.title)) return@ItemProcessor null
             if (seasonRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
+            seasonTitles.add(reportSheetRow.title!!)
             logger.info("seasonProcessor: ${reportSheetRow.title}")
             reportSheetRow.toSeason().apply {
                 if (this.seasonNumber is Int) {

@@ -11,15 +11,14 @@ import org.springframework.data.annotation.CreatedDate
 import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.Instant
-import java.util.UUID
 
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener::class)
 abstract class AbstractEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Comment("Primary unique identifier")
-    var id: UUID? = null
+    var id: Long? = null
 
     @CreatedDate
     @Column(nullable = false)
