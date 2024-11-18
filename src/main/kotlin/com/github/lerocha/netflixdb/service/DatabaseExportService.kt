@@ -33,13 +33,14 @@ class DatabaseExportService(
 
     companion object {
         const val CHUNK_SIZE = 100
+        const val ARTIFACTS_DIRECTORY = "build/artifacts"
     }
 
     fun exportSchema(
         databaseName: String,
         filename: String,
     ) {
-        val path = "build/artifacts/$filename"
+        val path = "$ARTIFACTS_DIRECTORY/$filename"
         File(path).parentFile.mkdirs()
         val settings =
             mutableMapOf<String, Any>(
@@ -117,7 +118,7 @@ class DatabaseExportService(
             stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
         }
 
-        val path = "build/$filename"
+        val path = "$ARTIFACTS_DIRECTORY/$filename"
         File(path).appendText(stringBuilder.toString())
         logger.info("Exported data for $databaseName to $path")
     }
