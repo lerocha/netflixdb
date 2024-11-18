@@ -16,7 +16,7 @@ services:
     ports:
       - "3306:3306"
 #    volumes:
-#      - ./build/netflixdb-mysql.sql:/docker-entrypoint-initdb.d/netflixdb-mysql.sql
+#      - ./build/artifacts/netflixdb-mysql.sql:/docker-entrypoint-initdb.d/netflixdb-mysql.sql
 
   #----------------------------------------------------------------------------
   # Oracle Container
@@ -40,7 +40,7 @@ services:
       retries: 10
       start_period: 5s
 #    volumes:
-#      - ./build/netflixdb-oracle.sql:/docker-entrypoint-initdb.d/netflixdb-oracle.sql
+#      - ./build/artifacts/netflixdb-oracle.sql:/docker-entrypoint-initdb.d/netflixdb-oracle.sql
   #----------------------------------------------------------------------------
   # PostgreSQL Container
   # https://hub.docker.com/_/postgres
@@ -56,4 +56,4 @@ services:
     ports:
       - "5432:5432"
 #    volumes:
-#      - ./build/netflixdb-postgresql.sql:/docker-entrypoint-initdb.d/netflixdb-postgresql.sql
+#      - ./build/artifacts/netflixdb-postgresql.sql:/docker-entrypoint-initdb.d/netflixdb-postgresql.sql

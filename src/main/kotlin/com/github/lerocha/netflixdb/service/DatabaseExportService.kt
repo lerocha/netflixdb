@@ -39,7 +39,8 @@ class DatabaseExportService(
         databaseName: String,
         filename: String,
     ) {
-        val path = "build/$filename"
+        val path = "build/artifacts/$filename"
+        File(path).parentFile.mkdirs()
         val settings =
             mutableMapOf<String, Any>(
                 "connection.driver_class" to dataSourceProperties.driverClassName,

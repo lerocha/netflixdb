@@ -143,7 +143,7 @@ class CreateNetflixDatabaseJobConfig {
     ): Step =
         StepBuilder("exportDatabaseStep", jobRepository)
             .tasklet({ contribution, chunkContext ->
-                val databaseName = dataSourceProperties.url.replace("jdbc:", "").split(":").first()
+                val databaseName = dataSourceProperties.name
                 val filename = "netflixdb-$databaseName.sql"
                 databaseExportService.exportSchema(databaseName, filename)
                 databaseExportService.exportData(databaseName, filename)

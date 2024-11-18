@@ -12,7 +12,7 @@ class DatabaseStrategyFactory(
         return when (databaseName) {
             "oracle" -> oracleStrategy
             "mysql" -> mysqlStrategy
-            "postgresql" -> postgresStrategy
+            "postgres" -> postgresStrategy
             "h2" -> postgresStrategy
             else -> throw IllegalArgumentException("Not supported database $databaseName")
         }
