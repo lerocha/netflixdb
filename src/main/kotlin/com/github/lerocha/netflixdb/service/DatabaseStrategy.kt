@@ -26,6 +26,7 @@ interface DatabaseStrategy {
 
     fun <T : AbstractEntity> getInsertStatement(entities: List<T>): String {
         if (entities.isEmpty()) return ""
+        if (entities.size == 1) return getInsertStatement(entities[0])
         val properties = getProperties(entities.first())
         val tableName = getPhysicalNamingStrategy().toPhysicalTableName(Identifier(entities.first().javaClass.simpleName, false), null).text
         val names = properties.keys.joinToString(", ")

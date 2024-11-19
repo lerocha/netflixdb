@@ -32,7 +32,7 @@ class DatabaseExportService(
     private val logger = LoggerFactory.getLogger(javaClass)
 
     companion object {
-        const val CHUNK_SIZE = 100
+        const val CHUNK_SIZE = 1
         const val ARTIFACTS_DIRECTORY = "build/artifacts"
     }
 

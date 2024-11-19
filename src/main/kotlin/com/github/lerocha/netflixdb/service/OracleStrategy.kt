@@ -44,7 +44,7 @@ class OracleStrategy : DatabaseStrategy {
 
     override fun <T : AbstractEntity> getInsertStatement(entities: List<T>): String {
         val stringBuilder = StringBuilder()
-        entities.map { entity -> getInsertStatement(entity) }.forEach { stringBuilder.appendLine(it) }
+        entities.map { entity -> getInsertStatement(entity) }.forEach { stringBuilder.append(it) }
         return stringBuilder.toString()
     }
 }
