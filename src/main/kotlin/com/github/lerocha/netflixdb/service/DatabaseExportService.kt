@@ -99,17 +99,17 @@ class DatabaseExportService(
         val stringBuilder = StringBuilder()
 
         stringBuilder.appendLine().appendLine(printHeader("Movies data"))
-        movieRepository.findAll().chunked(CHUNK_SIZE).forEach { chunk ->
+        movieRepository.findAll().sortedWith(compareBy(Movie::id)).chunked(CHUNK_SIZE).forEach { chunk ->
             stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
         }
 
         stringBuilder.appendLine().appendLine(printHeader("TV Show data"))
-        tvShowRepository.findAll().chunked(CHUNK_SIZE).forEach { chunk ->
+        tvShowRepository.findAll().sortedWith(compareBy(TvShow::id)).chunked(CHUNK_SIZE).forEach { chunk ->
             stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
         }
 
         stringBuilder.appendLine().appendLine(printHeader("Season data"))
-        seasonRepository.findAll().chunked(CHUNK_SIZE).forEach { chunk ->
+        seasonRepository.findAll().sortedWith(compareBy(Season::id)).chunked(CHUNK_SIZE).forEach { chunk ->
             stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
         }
 
