@@ -206,7 +206,6 @@ class CreateNetflixDatabaseJobConfig {
             if (movieTitles.contains(reportSheetRow.title)) return@ItemProcessor null
             if (movieRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
             movieTitles.add(reportSheetRow.title!!)
-            logger.info("movieProcessor: ${reportSheetRow.title}")
             reportSheetRow.toMovie()
         }
 
@@ -220,7 +219,6 @@ class CreateNetflixDatabaseJobConfig {
             if (seasonTitles.contains(reportSheetRow.title)) return@ItemProcessor null
             if (seasonRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
             seasonTitles.add(reportSheetRow.title!!)
-            logger.info("seasonProcessor: ${reportSheetRow.title}")
             reportSheetRow.toSeason().apply {
                 if (this.seasonNumber is Int) {
                     val tvShow = reportSheetRow.toTvShow()
