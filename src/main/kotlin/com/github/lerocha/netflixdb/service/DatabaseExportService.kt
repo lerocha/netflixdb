@@ -1,10 +1,6 @@
 package com.github.lerocha.netflixdb.service
 
-import com.github.lerocha.netflixdb.entity.Episode
-import com.github.lerocha.netflixdb.entity.Movie
-import com.github.lerocha.netflixdb.entity.Season
-import com.github.lerocha.netflixdb.entity.TvShow
-import com.github.lerocha.netflixdb.entity.ViewSummary
+import com.github.lerocha.netflixdb.entity.AbstractEntity
 import com.github.lerocha.netflixdb.repository.MovieRepository
 import com.github.lerocha.netflixdb.repository.SeasonRepository
 import com.github.lerocha.netflixdb.repository.TvShowRepository
@@ -37,8 +33,10 @@ class DatabaseExportService(
     }
 
     fun exportSchema(
+        title: String,
         databaseName: String,
         filename: String,
+        entityClasses: List<Class<out AbstractEntity>>,
     ) {
         val path = "$ARTIFACTS_DIRECTORY/$filename"
         File(path).parentFile.mkdirs()
@@ -59,18 +57,13 @@ class DatabaseExportService(
                 StandardServiceRegistryBuilder()
                     .applySettings(settings)
                     .build(),
-            ).addAnnotatedClasses(Movie::class.java)
-                .addAnnotatedClasses(TvShow::class.java)
-                .addAnnotatedClasses(Season::class.java)
-                .addAnnotatedClasses(Episode::class.java)
-                .addAnnotatedClasses(ViewSummary::class.java)
-                .buildMetadata()
+            ).addAnnotatedClasses(*entityClasses.toTypedArray()).buildMetadata()
 
         File(path).writeText(
             """
             /**********************************************************************************
-              NetflixDB for ${databaseName.uppercase()}
-              Description: Creates and populates the Netflix database.
+              $title for ${databaseName.uppercase()}
+              Description: Creates and populates the $title.
               Created on: ${OffsetDateTime.now()}
               Author: Luis Rocha
                
@@ -95,32 +88,30 @@ class DatabaseExportService(
         databaseName: String,
         filename: String,
     ) {
+        val path = "$ARTIFACTS_DIRECTORY/$filename"
+        File(path).appendText(
+            StringBuilder()
+                .append(getInsertStatement(databaseName, "Movies data", movieRepository.findAll()))
+                .append(getInsertStatement(databaseName, "TV Show data", tvShowRepository.findAll()))
+                .append(getInsertStatement(databaseName, "Season data", seasonRepository.findAll()))
+                .append(getInsertStatement(databaseName, "ViewSummary data", viewSummaryRepository.findAll())).toString(),
+        )
+        logger.info("Exported data for $databaseName to $path")
+    }
+
+    fun getInsertStatement(
+        databaseName: String,
+        caption: String,
+        data: List<AbstractEntity>,
+        chunkSize: Int = CHUNK_SIZE,
+    ): String {
         val databaseStrategy = databaseStrategyFactory.getInstance(databaseName)
         val stringBuilder = StringBuilder()
-
-        stringBuilder.appendLine().appendLine(printHeader("Movies data"))
-        movieRepository.findAll().sortedWith(compareBy(Movie::id)).chunked(CHUNK_SIZE).forEach { chunk ->
+        stringBuilder.appendLine().appendLine(printHeader(caption))
+        data.chunked(chunkSize).forEach { chunk ->
             stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
         }
-
-        stringBuilder.appendLine().appendLine(printHeader("TV Show data"))
-        tvShowRepository.findAll().sortedWith(compareBy(TvShow::id)).chunked(CHUNK_SIZE).forEach { chunk ->
-            stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
-        }
-
-        stringBuilder.appendLine().appendLine(printHeader("Season data"))
-        seasonRepository.findAll().sortedWith(compareBy(Season::id)).chunked(CHUNK_SIZE).forEach { chunk ->
-            stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
-        }
-
-        stringBuilder.appendLine().appendLine(printHeader("ViewSummary data"))
-        viewSummaryRepository.findAll().chunked(CHUNK_SIZE).forEach { chunk ->
-            stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
-        }
-
-        val path = "$ARTIFACTS_DIRECTORY/$filename"
-        File(path).appendText(stringBuilder.toString())
-        logger.info("Exported data for $databaseName to $path")
+        return stringBuilder.toString()
     }
 
     private fun printHeader(text: String) =

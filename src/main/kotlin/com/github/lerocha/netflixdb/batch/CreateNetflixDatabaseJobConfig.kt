@@ -6,9 +6,12 @@ import com.github.lerocha.netflixdb.dto.toCategory
 import com.github.lerocha.netflixdb.dto.toMovie
 import com.github.lerocha.netflixdb.dto.toSeason
 import com.github.lerocha.netflixdb.dto.toTvShow
+import com.github.lerocha.netflixdb.entity.Episode
 import com.github.lerocha.netflixdb.entity.Movie
 import com.github.lerocha.netflixdb.entity.Season
 import com.github.lerocha.netflixdb.entity.SummaryDuration
+import com.github.lerocha.netflixdb.entity.TvShow
+import com.github.lerocha.netflixdb.entity.ViewSummary
 import com.github.lerocha.netflixdb.repository.MovieRepository
 import com.github.lerocha.netflixdb.repository.SeasonRepository
 import com.github.lerocha.netflixdb.repository.TvShowRepository
@@ -41,6 +44,14 @@ class CreateNetflixDatabaseJobConfig {
     private val logger: Logger = LoggerFactory.getLogger(javaClass)
     private val movieTitles: MutableSet<String> = mutableSetOf()
     private val seasonTitles: MutableSet<String> = mutableSetOf()
+    private val entityClasses =
+        listOf(
+            Movie::class.java,
+            TvShow::class.java,
+            Season::class.java,
+            Episode::class.java,
+            ViewSummary::class.java,
+        )
 
     @Bean
     fun createNetflixDatabaseJob(
@@ -147,7 +158,7 @@ class CreateNetflixDatabaseJobConfig {
             .tasklet({ contribution, chunkContext ->
                 val databaseName = dataSourceProperties.name
                 val filename = "netflixdb-$databaseName.sql"
-                databaseExportService.exportSchema(databaseName, filename)
+                databaseExportService.exportSchema("Netflix database", databaseName, filename, entityClasses)
                 databaseExportService.exportData(databaseName, filename)
                 logger.info("${chunkContext.stepContext.jobName}.${contribution.stepExecution.stepName}: database has been exported")
                 RepeatStatus.FINISHED
