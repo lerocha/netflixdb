@@ -1,10 +1,6 @@
 package com.github.lerocha.netflixdb.service
 
 import com.github.lerocha.netflixdb.entity.AbstractEntity
-import com.github.lerocha.netflixdb.repository.MovieRepository
-import com.github.lerocha.netflixdb.repository.SeasonRepository
-import com.github.lerocha.netflixdb.repository.TvShowRepository
-import com.github.lerocha.netflixdb.repository.ViewSummaryRepository
 import org.hibernate.boot.MetadataSources
 import org.hibernate.boot.registry.StandardServiceRegistryBuilder
 import org.hibernate.tool.hbm2ddl.SchemaExport
@@ -20,17 +16,8 @@ import java.util.EnumSet
 class DatabaseExportService(
     private val dataSourceProperties: DataSourceProperties,
     private val databaseStrategyFactory: DatabaseStrategyFactory,
-    private val movieRepository: MovieRepository,
-    private val tvShowRepository: TvShowRepository,
-    private val seasonRepository: SeasonRepository,
-    private val viewSummaryRepository: ViewSummaryRepository,
 ) {
     private val logger = LoggerFactory.getLogger(javaClass)
-
-    companion object {
-        const val CHUNK_SIZE = 1
-        const val ARTIFACTS_DIRECTORY = "build/artifacts"
-    }
 
     fun exportSchema(
         title: String,
@@ -38,8 +25,7 @@ class DatabaseExportService(
         filename: String,
         entityClasses: List<Class<out AbstractEntity>>,
     ) {
-        val path = "$ARTIFACTS_DIRECTORY/$filename"
-        File(path).parentFile.mkdirs()
+        File(filename).parentFile.mkdirs()
         val settings =
             mutableMapOf<String, Any>(
                 "connection.driver_class" to dataSourceProperties.driverClassName,
@@ -59,7 +45,7 @@ class DatabaseExportService(
                     .build(),
             ).addAnnotatedClasses(*entityClasses.toTypedArray()).buildMetadata()
 
-        File(path).writeText(
+        File(filename).writeText(
             """
             /**********************************************************************************
               $title for ${databaseName.uppercase()}
@@ -78,46 +64,15 @@ class DatabaseExportService(
             .setHaltOnError(true)
             .setFormat(true)
             .setDelimiter(";")
-            .setOutputFile(path)
+            .setOutputFile(filename)
             .execute(EnumSet.of(TargetType.SCRIPT), SchemaExport.Action.CREATE, metadata)
 
-        logger.info("Exported schema for $databaseName to $path")
-    }
-
-    fun exportData(
-        databaseName: String,
-        filename: String,
-    ) {
-        val path = "$ARTIFACTS_DIRECTORY/$filename"
-        File(path).appendText(
-            StringBuilder()
-                .append(getInsertStatement(databaseName, "Movies data", movieRepository.findAll()))
-                .append(getInsertStatement(databaseName, "TV Show data", tvShowRepository.findAll()))
-                .append(getInsertStatement(databaseName, "Season data", seasonRepository.findAll()))
-                .append(getInsertStatement(databaseName, "ViewSummary data", viewSummaryRepository.findAll())).toString(),
-        )
-        logger.info("Exported data for $databaseName to $path")
+        File(filename).appendText("\n\n")
+        logger.info("Exported schema for $databaseName to $filename")
     }
 
     fun getInsertStatement(
         databaseName: String,
-        caption: String,
         data: List<AbstractEntity>,
-        chunkSize: Int = CHUNK_SIZE,
-    ): String {
-        val databaseStrategy = databaseStrategyFactory.getInstance(databaseName)
-        val stringBuilder = StringBuilder()
-        stringBuilder.appendLine().appendLine(printHeader(caption))
-        data.chunked(chunkSize).forEach { chunk ->
-            stringBuilder.appendLine(databaseStrategy.getInsertStatement(chunk))
-        }
-        return stringBuilder.toString()
-    }
-
-    private fun printHeader(text: String) =
-        """
-        /**********************************************************************************
-          $text
-        ***********************************************************************************/
-        """.trimIndent()
+    ): String = databaseStrategyFactory.getInstance(databaseName).getInsertStatement(data)
 }

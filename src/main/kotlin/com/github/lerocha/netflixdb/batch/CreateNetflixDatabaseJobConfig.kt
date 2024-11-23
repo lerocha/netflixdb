@@ -6,6 +6,7 @@ import com.github.lerocha.netflixdb.dto.toCategory
 import com.github.lerocha.netflixdb.dto.toMovie
 import com.github.lerocha.netflixdb.dto.toSeason
 import com.github.lerocha.netflixdb.dto.toTvShow
+import com.github.lerocha.netflixdb.entity.AbstractEntity
 import com.github.lerocha.netflixdb.entity.Episode
 import com.github.lerocha.netflixdb.entity.Movie
 import com.github.lerocha.netflixdb.entity.Season
@@ -15,6 +16,7 @@ import com.github.lerocha.netflixdb.entity.ViewSummary
 import com.github.lerocha.netflixdb.repository.MovieRepository
 import com.github.lerocha.netflixdb.repository.SeasonRepository
 import com.github.lerocha.netflixdb.repository.TvShowRepository
+import com.github.lerocha.netflixdb.repository.ViewSummaryRepository
 import com.github.lerocha.netflixdb.service.DatabaseExportService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -28,6 +30,7 @@ import org.springframework.batch.extensions.excel.poi.PoiItemReader
 import org.springframework.batch.extensions.excel.support.rowset.RowSet
 import org.springframework.batch.item.ItemProcessor
 import org.springframework.batch.item.data.RepositoryItemWriter
+import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder
 import org.springframework.batch.item.data.builder.RepositoryItemWriterBuilder
 import org.springframework.batch.repeat.RepeatStatus
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties
@@ -35,12 +38,20 @@ import org.springframework.boot.autoconfigure.orm.jpa.HibernateProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.core.io.ClassPathResource
+import org.springframework.data.domain.Sort
+import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.transaction.PlatformTransactionManager
+import java.io.File
 import java.time.LocalDate
 import kotlin.time.Duration
 
 @Configuration
-class CreateNetflixDatabaseJobConfig {
+class CreateNetflixDatabaseJobConfig(
+    private val jobRepository: JobRepository,
+    private val transactionManager: PlatformTransactionManager,
+    private val dataSourceProperties: DataSourceProperties,
+    private val databaseExportService: DatabaseExportService,
+) {
     private val logger: Logger = LoggerFactory.getLogger(javaClass)
     private val movieTitles: MutableSet<String> = mutableSetOf()
     private val seasonTitles: MutableSet<String> = mutableSetOf()
@@ -53,15 +64,22 @@ class CreateNetflixDatabaseJobConfig {
             ViewSummary::class.java,
         )
 
+    companion object {
+        const val ARTIFACTS_DIRECTORY = "build/artifacts"
+    }
+
     @Bean
     fun createNetflixDatabaseJob(
-        jobRepository: JobRepository,
         hibernateProperties: HibernateProperties,
         importMoviesFromEngagementReportStep: Step,
         importSeasonsFromEngagementReportStep: Step,
         importMoviesFromTop10ListStep: Step,
         importSeasonsFromTop10ListStep: Step,
-        exportDatabaseStep: Step,
+        exportDatabaseSchemaStep: Step,
+        movieRepository: MovieRepository,
+        tvShowRepository: TvShowRepository,
+        seasonRepository: SeasonRepository,
+        viewSummaryRepository: ViewSummaryRepository,
     ): Job =
         if (hibernateProperties.ddlAuto == "create") {
             JobBuilder("createNetflixDatabaseJob", jobRepository)
@@ -70,19 +88,25 @@ class CreateNetflixDatabaseJobConfig {
                 .next(importMoviesFromTop10ListStep)
                 .next(importSeasonsFromEngagementReportStep)
                 .next(importSeasonsFromTop10ListStep)
-                .next(exportDatabaseStep)
+                .next(exportDatabaseSchemaStep)
+                .next(exportDataStep("movie", movieRepository))
+                .next(exportDataStep("tvShow", tvShowRepository))
+                .next(exportDataStep("season", seasonRepository))
+                .next(exportDataStep("viewSummary", viewSummaryRepository))
                 .build()
         } else {
             JobBuilder("createNetflixDatabaseJob", jobRepository)
                 .incrementer(RunIdIncrementer())
-                .start(exportDatabaseStep)
+                .start(exportDatabaseSchemaStep)
+                .next(exportDataStep("movie", movieRepository))
+                .next(exportDataStep("tvShow", tvShowRepository))
+                .next(exportDataStep("season", seasonRepository))
+                .next(exportDataStep("viewSummary", viewSummaryRepository))
                 .build()
         }
 
     @Bean
     fun importMoviesFromEngagementReportStep(
-        jobRepository: JobRepository,
-        transactionManager: PlatformTransactionManager,
         engagementReportReader: PoiItemReader<ReportSheetRow>,
         movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
         movieWriter: RepositoryItemWriter<Movie>,
@@ -98,8 +122,6 @@ class CreateNetflixDatabaseJobConfig {
 
     @Bean
     fun importMoviesFromTop10ListStep(
-        jobRepository: JobRepository,
-        transactionManager: PlatformTransactionManager,
         top10ListReader: PoiItemReader<ReportSheetRow>,
         movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
         movieWriter: RepositoryItemWriter<Movie>,
@@ -115,8 +137,6 @@ class CreateNetflixDatabaseJobConfig {
 
     @Bean
     fun importSeasonsFromEngagementReportStep(
-        jobRepository: JobRepository,
-        transactionManager: PlatformTransactionManager,
         engagementReportReader: PoiItemReader<ReportSheetRow>,
         seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
         seasonWriter: RepositoryItemWriter<Season>,
@@ -132,8 +152,6 @@ class CreateNetflixDatabaseJobConfig {
 
     @Bean
     fun importSeasonsFromTop10ListStep(
-        jobRepository: JobRepository,
-        transactionManager: PlatformTransactionManager,
         top10ListReader: PoiItemReader<ReportSheetRow>,
         seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
         seasonWriter: RepositoryItemWriter<Season>,
@@ -148,21 +166,50 @@ class CreateNetflixDatabaseJobConfig {
             .build()
 
     @Bean
-    fun exportDatabaseStep(
-        jobRepository: JobRepository,
-        transactionManager: PlatformTransactionManager,
+    fun exportDatabaseSchemaStep(
         dataSourceProperties: DataSourceProperties,
         databaseExportService: DatabaseExportService,
     ): Step =
-        StepBuilder("exportDatabaseStep", jobRepository)
+        StepBuilder("exportDatabaseSchemaStep", jobRepository)
             .tasklet({ contribution, chunkContext ->
-                val databaseName = dataSourceProperties.name
-                val filename = "netflixdb-$databaseName.sql"
-                databaseExportService.exportSchema("Netflix database", databaseName, filename, entityClasses)
-                databaseExportService.exportData(databaseName, filename)
+                databaseExportService.exportSchema(
+                    title = "Netflix database",
+                    databaseName = dataSourceProperties.name,
+                    filename = "$ARTIFACTS_DIRECTORY/netflixdb-${dataSourceProperties.name}.sql",
+                    entityClasses,
+                )
                 logger.info("${chunkContext.stepContext.jobName}.${contribution.stepExecution.stepName}: database has been exported")
                 RepeatStatus.FINISHED
             }, transactionManager)
+            .build()
+
+    fun <T : AbstractEntity> exportDataStep(
+        name: String,
+        repository: JpaRepository<T, Long>,
+    ): Step =
+        StepBuilder("${name}ExportStep", jobRepository)
+            .chunk<T, T>(100, transactionManager)
+            .allowStartIfComplete(true)
+            .reader(
+                RepositoryItemReaderBuilder<T>()
+                    .name("${name}ExportReader")
+                    .repository(repository)
+                    .methodName("findAll")
+                    .sorts(mapOf("id" to Sort.Direction.ASC))
+                    .pageSize(100)
+                    .build(),
+            )
+            .processor { entity -> entity }
+            .writer { chunk ->
+                val stringBuilder = StringBuilder()
+                chunk.map {
+                    stringBuilder.appendLine(
+                        databaseExportService.getInsertStatement(dataSourceProperties.name, chunk.items),
+                    )
+                }
+                File("$ARTIFACTS_DIRECTORY/netflixdb-${dataSourceProperties.name}.sql").appendText(stringBuilder.toString())
+            }
+            .faultTolerant()
             .build()
 
     @Bean
