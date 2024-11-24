@@ -28,7 +28,7 @@ class MySqlStrategy : DatabaseStrategy {
                 is Instant -> "'${instantFormatter.format(property)}'"
                 is LocalDate -> "'$property'"
                 is UUID -> "0x${property.toString().uppercase().replace("-", "")}"
-                is AbstractEntity -> "0x${property.id.toString().uppercase().replace("-", "")}"
+                is AbstractEntity -> property.id.toString()
                 else -> property ?: "null"
             }
         }.joinToString(", ")

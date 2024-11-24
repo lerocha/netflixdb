@@ -28,7 +28,7 @@ class PostgresStrategy : DatabaseStrategy {
                 is Instant -> "'${instantFormatter.format(property)}'"
                 is LocalDate -> "'$property'"
                 is UUID -> "'$property'"
-                is AbstractEntity -> "'${property.id}'"
+                is AbstractEntity -> property.id.toString()
                 else -> property ?: "null"
             }
         }.joinToString(", ")

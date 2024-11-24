@@ -36,7 +36,7 @@ class OracleStrategy : DatabaseStrategy {
                 is Instant -> "timestamp '${instantFormatter.format(property)}'"
                 is LocalDate -> "date '$property'"
                 is UUID -> "'${property.toString().uppercase().replace("-", "")}'"
-                is AbstractEntity -> "'${property.id.toString().uppercase().replace("-", "")}'"
+                is AbstractEntity -> property.id.toString()
                 else -> property ?: "null"
             }
         }.joinToString(", ")
