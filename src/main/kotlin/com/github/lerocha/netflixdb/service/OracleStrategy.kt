@@ -32,7 +32,7 @@ class OracleStrategy : DatabaseStrategy {
             when (property) {
                 is Enum<*> -> "'$property'"
                 is Boolean -> if (property) "1" else "0"
-                is String -> "'${property.replace("'", "''")}'"
+                is String -> "'${property.replace("'", "''").replace("&", "'||chr(38)||'")}'"
                 is Instant -> "timestamp '${instantFormatter.format(property)}'"
                 is LocalDate -> "date '$property'"
                 is UUID -> "'${property.toString().uppercase().replace("-", "")}'"
