@@ -40,6 +40,7 @@ interface DatabaseStrategy {
                 },
             )
             .appendLine(";")
+            .appendLine()
             .toString()
     }
 
