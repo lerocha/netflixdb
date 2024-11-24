@@ -248,6 +248,8 @@ class CreateNetflixDatabaseJobConfig(
                     releaseDate = null
                     hoursViewed = rowSet.getInt("weekly_hours_viewed")
                     views = rowSet.getInt("weekly_views")
+                    viewRank = rowSet.getInt("weekly_rank")
+                    cumulativeWeeksInTop10 = rowSet.getInt("cumulative_weeks_in_top_10")
                 }
             }
         }

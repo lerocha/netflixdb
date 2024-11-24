@@ -21,6 +21,8 @@ data class ReportSheetRow(
     var startDate: LocalDate? = null,
     var endDate: LocalDate? = null,
     var duration: SummaryDuration? = null,
+    var viewRank: Int? = null,
+    var cumulativeWeeksInTop10: Int? = null,
 )
 
 fun ReportSheetRow.toMovie() =
@@ -74,6 +76,8 @@ fun ReportSheetRow.toViewSummary() =
         this.duration = this@toViewSummary.duration
         this.hoursViewed = this@toViewSummary.hoursViewed
         this.views = this@toViewSummary.views
+        this.viewRank = this@toViewSummary.viewRank
+        this.cumulativeWeeksInTop10 = this@toViewSummary.cumulativeWeeksInTop10
     }
 
 fun now(): Instant = LocalDate.of(2024, 1, 1).atStartOfDay().toInstant(ZoneOffset.UTC)

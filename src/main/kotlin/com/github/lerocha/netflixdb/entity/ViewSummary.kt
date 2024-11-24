@@ -44,6 +44,10 @@ class ViewSummary : AbstractEntity() {
     @Comment("The number of views during this period")
     var views: Int? = null
 
+    @Column(nullable = true)
+    @Comment("The number of cumulative weeks in top 10 list")
+    var cumulativeWeeksInTop10: Int? = null
+
     @ManyToOne
     @Comment("The movie for this weekly summary")
     @JoinColumn(nullable = true, foreignKey = ForeignKey(name = "fk_view_summary_movie_id"))
