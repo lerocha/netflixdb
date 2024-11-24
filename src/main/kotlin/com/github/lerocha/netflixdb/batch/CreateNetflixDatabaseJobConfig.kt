@@ -201,13 +201,8 @@ class CreateNetflixDatabaseJobConfig(
             )
             .processor { entity -> entity }
             .writer { chunk ->
-                val stringBuilder = StringBuilder()
-                chunk.map {
-                    stringBuilder.appendLine(
-                        databaseExportService.getInsertStatement(dataSourceProperties.name, chunk.items),
-                    )
-                }
-                File("$ARTIFACTS_DIRECTORY/netflixdb-${dataSourceProperties.name}.sql").appendText(stringBuilder.toString())
+                File("$ARTIFACTS_DIRECTORY/netflixdb-${dataSourceProperties.name}.sql")
+                    .appendText(databaseExportService.getInsertStatement(dataSourceProperties.name, chunk.items))
             }
             .faultTolerant()
             .build()
