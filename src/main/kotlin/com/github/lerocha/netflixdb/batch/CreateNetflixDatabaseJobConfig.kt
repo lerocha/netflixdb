@@ -237,8 +237,8 @@ class CreateNetflixDatabaseJobConfig(
             setResource(ClassPathResource("reports/all-weeks-global.xlsx"))
             setRowMapper { rowSet ->
                 ReportSheetRow().apply {
-                    startDate = rowSet.getString("week")?.let { LocalDate.parse(it) }
-                    endDate = rowSet.getString("week")?.let { LocalDate.parse(it).plusDays(6) }
+                    startDate = rowSet.getString("week")?.let { LocalDate.parse(it).minusDays(6) }
+                    endDate = rowSet.getString("week")?.let { LocalDate.parse(it) }
                     duration = SummaryDuration.WEEKLY
                     runtime = rowSet.getRuntimeInMinutes("runtime")
                     title = rowSet.getString("show_title")?.trim()
