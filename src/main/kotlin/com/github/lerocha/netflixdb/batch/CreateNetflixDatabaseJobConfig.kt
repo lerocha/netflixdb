@@ -6,6 +6,7 @@ import com.github.lerocha.netflixdb.dto.toCategory
 import com.github.lerocha.netflixdb.dto.toMovie
 import com.github.lerocha.netflixdb.dto.toSeason
 import com.github.lerocha.netflixdb.dto.toTvShow
+import com.github.lerocha.netflixdb.dto.toViewSummary
 import com.github.lerocha.netflixdb.entity.AbstractEntity
 import com.github.lerocha.netflixdb.entity.Episode
 import com.github.lerocha.netflixdb.entity.Movie
@@ -258,8 +259,31 @@ class CreateNetflixDatabaseJobConfig(
     fun movieProcessor(movieRepository: MovieRepository): ItemProcessor<ReportSheetRow, Movie> =
         ItemProcessor<ReportSheetRow, Movie> { reportSheetRow ->
             if (reportSheetRow.category != StreamingCategory.MOVIE) return@ItemProcessor null
+            movieRepository.findByTitle(reportSheetRow.title!!)?.let { movie ->
+                movie.apply {
+                    reportSheetRow.originalTitle?.let { originalTitle = it }
+                    reportSheetRow.runtime?.let { runtime = it }
+                    reportSheetRow.releaseDate?.let { releaseDate = it }
+                    reportSheetRow.availableGlobally?.let { availableGlobally = it }
+                    val viewSummary = reportSheetRow.toViewSummary().apply { this.movie = movie }
+                    val existingViewSummary =
+                        this.viewSummaries.firstOrNull {
+                            it.movie == movie && it.duration == viewSummary.duration && it.startDate == viewSummary.startDate
+                        }
+                    if (existingViewSummary != null) {
+                        existingViewSummary.apply {
+                            viewSummary.viewRank?.let { viewRank = it }
+                            viewSummary.hoursViewed?.let { hoursViewed = it }
+                            viewSummary.views?.let { views = it }
+                            viewSummary.cumulativeWeeksInTop10?.let { cumulativeWeeksInTop10 = it }
+                        }
+                    } else {
+                        this.viewSummaries.add(viewSummary)
+                    }
+                }
+                return@ItemProcessor movie
+            }
             if (movieTitles.contains(reportSheetRow.title)) return@ItemProcessor null
-            if (movieRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
             movieTitles.add(reportSheetRow.title!!)
             reportSheetRow.toMovie()
         }
