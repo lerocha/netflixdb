@@ -44,6 +44,7 @@ import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.transaction.PlatformTransactionManager
 import java.io.File
 import java.time.LocalDate
+import java.util.Locale
 import kotlin.time.Duration
 
 @Configuration
@@ -245,6 +246,7 @@ class CreateNetflixDatabaseJobConfig(
                     title = rowSet.getString("show_title")?.trim()
                     originalTitle = rowSet.getString("show_title")?.trim()
                     category = rowSet.getString("category")?.toCategory()
+                    language = if (rowSet.getString("category")?.contains("(English)") == true) Locale.ENGLISH else null
                     availableGlobally = null
                     releaseDate = null
                     hoursViewed = rowSet.getInt("weekly_hours_viewed")

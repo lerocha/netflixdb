@@ -27,7 +27,7 @@ class ViewSummary : AbstractEntity() {
     @Comment("The last day of the period this summary refers to")
     var endDate: LocalDate? = null
 
-    @Column(nullable = false)
+    @Column(length = 20, nullable = false)
     @Enumerated(EnumType.STRING)
     @Comment("The duration of the period this summary refers to")
     var duration: SummaryDuration? = null

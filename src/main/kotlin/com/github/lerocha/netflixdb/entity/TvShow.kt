@@ -8,6 +8,7 @@ import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
 import java.time.LocalDate
+import java.util.Locale
 
 @Entity
 @Table(
@@ -31,6 +32,10 @@ class TvShow : AbstractEntity() {
     @Column(nullable = true)
     @Comment("A flag that indicates if this title is available outside US")
     var availableGlobally: Boolean? = false
+
+    @Column(length = 10, nullable = true)
+    @Comment("The original language of the TV show in ISO 639 language code")
+    var language: Locale? = null
 
     @OneToMany(mappedBy = "tvShow", fetch = FetchType.LAZY)
     var seasons: MutableList<Season> = mutableListOf()
