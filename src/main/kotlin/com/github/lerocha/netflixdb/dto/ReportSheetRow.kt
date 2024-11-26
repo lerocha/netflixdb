@@ -44,16 +44,15 @@ fun ReportSheetRow.toTvShow() =
     TvShow().apply {
         this.createdDate = now()
         this.modifiedDate = now()
-        this.title =
-            this@toTvShow.title?.split(":")?.lastOrNull()?.let { last ->
-                this@toTvShow.title?.replace(":$last", "")?.trim()
-            }
-        this.originalTitle =
-            this@toTvShow.originalTitle?.split(":")?.lastOrNull()?.let { last ->
-                this@toTvShow.originalTitle?.replace(":$last", "")?.trim()
-            }
+        this.title = this@toTvShow.title?.toTvShowTitle()
+        this.originalTitle = this@toTvShow.originalTitle?.toTvShowTitle()
         this.availableGlobally = this@toTvShow.availableGlobally
         this.language = this@toTvShow.language
+    }
+
+fun String?.toTvShowTitle() =
+    this?.split(":")?.lastOrNull()?.let { last ->
+        this?.replace(":$last", "")?.trim()
     }
 
 fun ReportSheetRow.toSeason() =

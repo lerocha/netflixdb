@@ -6,6 +6,7 @@ import com.github.lerocha.netflixdb.dto.toCategory
 import com.github.lerocha.netflixdb.dto.toMovie
 import com.github.lerocha.netflixdb.dto.toSeason
 import com.github.lerocha.netflixdb.dto.toTvShow
+import com.github.lerocha.netflixdb.dto.toTvShowTitle
 import com.github.lerocha.netflixdb.dto.toViewSummary
 import com.github.lerocha.netflixdb.entity.AbstractEntity
 import com.github.lerocha.netflixdb.entity.Episode
@@ -273,12 +274,10 @@ class CreateNetflixDatabaseJobConfig(
                             it.movie == movie && it.duration == viewSummary.duration && it.startDate == viewSummary.startDate
                         }
                     if (existingViewSummary != null) {
-                        existingViewSummary.apply {
-                            viewSummary.viewRank?.let { viewRank = it }
-                            viewSummary.hoursViewed?.let { hoursViewed = it }
-                            viewSummary.views?.let { views = it }
-                            viewSummary.cumulativeWeeksInTop10?.let { cumulativeWeeksInTop10 = it }
-                        }
+                        viewSummary.viewRank?.let { existingViewSummary.viewRank = it }
+                        viewSummary.hoursViewed?.let { existingViewSummary.hoursViewed = it }
+                        viewSummary.views?.let { existingViewSummary.views = it }
+                        viewSummary.cumulativeWeeksInTop10?.let { existingViewSummary.cumulativeWeeksInTop10 = it }
                     } else {
                         this.viewSummaries.add(viewSummary)
                     }
@@ -297,15 +296,46 @@ class CreateNetflixDatabaseJobConfig(
     ): ItemProcessor<ReportSheetRow, Season> =
         ItemProcessor<ReportSheetRow, Season> { reportSheetRow ->
             if (reportSheetRow.category != StreamingCategory.TV_SHOW) return@ItemProcessor null
-            if (seasonTitles.contains(reportSheetRow.title)) return@ItemProcessor null
-            if (seasonRepository.findByTitle(reportSheetRow.title!!) != null) return@ItemProcessor null
+
+            val season =
+                seasonRepository.findByTitle(reportSheetRow.title!!)?.let { season ->
+                    val updatedSeason = reportSheetRow.toSeason()
+                    updatedSeason.seasonNumber?.let { season.seasonNumber = it }
+                    updatedSeason.originalTitle?.let { season.originalTitle = it }
+                    updatedSeason.runtime?.let { season.runtime = it }
+                    updatedSeason.releaseDate?.let { season.releaseDate = it }
+                    val viewSummary = reportSheetRow.toViewSummary().apply { this.season = season }
+                    val existingViewSummary =
+                        season.viewSummaries.firstOrNull {
+                            it.season == season && it.duration == viewSummary.duration && it.startDate == viewSummary.startDate
+                        }
+                    if (existingViewSummary != null) {
+                        viewSummary.viewRank?.let { existingViewSummary.viewRank = it }
+                        viewSummary.hoursViewed?.let { existingViewSummary.hoursViewed = it }
+                        viewSummary.views?.let { existingViewSummary.views = it }
+                        viewSummary.cumulativeWeeksInTop10?.let { existingViewSummary.cumulativeWeeksInTop10 = it }
+                    } else {
+                        season.viewSummaries.add(viewSummary)
+                    }
+                    season
+                } ?: reportSheetRow.toSeason()
+
+            if (season.id !is Long && seasonTitles.contains(reportSheetRow.title)) return@ItemProcessor null
             seasonTitles.add(reportSheetRow.title!!)
-            reportSheetRow.toSeason().apply {
-                if (this.seasonNumber is Int) {
-                    val tvShow = reportSheetRow.toTvShow()
-                    this.tvShow = tvShowRepository.findByTitle(tvShow.title!!) ?: tvShowRepository.save(tvShow)
-                }
-            }
+
+            val tvShowTitle = reportSheetRow.title.toTvShowTitle()!!
+            val tvShow =
+                (season.tvShow ?: tvShowRepository.findByTitle(tvShowTitle))?.let { tvShow ->
+                    val updatedTvShow = reportSheetRow.toTvShow()
+                    updatedTvShow.originalTitle?.let { tvShow.originalTitle = it }
+                    updatedTvShow.releaseDate?.let { tvShow.releaseDate = it }
+                    updatedTvShow.availableGlobally?.let { tvShow.availableGlobally = it }
+                    updatedTvShow.language?.let { tvShow.language = it }
+                    tvShow
+                } ?: reportSheetRow.toTvShow()
+
+            season.tvShow = tvShowRepository.save(tvShow)
+            season
         }
 
     @Bean
