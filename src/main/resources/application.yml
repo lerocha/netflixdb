@@ -30,3 +30,8 @@ spring.jpa:
       show_sql: false
       format_sql: true
   generate-ddl: true
+
+logging:
+  level:
+    org:
+      hibernate: error
