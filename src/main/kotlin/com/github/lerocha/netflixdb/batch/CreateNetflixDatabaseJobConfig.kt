@@ -7,7 +7,7 @@ import com.github.lerocha.netflixdb.dto.toMovie
 import com.github.lerocha.netflixdb.dto.toSeason
 import com.github.lerocha.netflixdb.dto.toTvShow
 import com.github.lerocha.netflixdb.dto.toTvShowTitle
-import com.github.lerocha.netflixdb.dto.toViewSummary
+import com.github.lerocha.netflixdb.dto.updateViewSummary
 import com.github.lerocha.netflixdb.entity.AbstractEntity
 import com.github.lerocha.netflixdb.entity.Episode
 import com.github.lerocha.netflixdb.entity.Movie
@@ -263,25 +263,11 @@ class CreateNetflixDatabaseJobConfig(
         ItemProcessor<ReportSheetRow, Movie> { reportSheetRow ->
             if (reportSheetRow.category != StreamingCategory.MOVIE) return@ItemProcessor null
             movieRepository.findByTitle(reportSheetRow.title!!)?.let { movie ->
-                movie.apply {
-                    reportSheetRow.originalTitle?.let { originalTitle = it }
-                    reportSheetRow.runtime?.let { runtime = it }
-                    reportSheetRow.releaseDate?.let { releaseDate = it }
-                    reportSheetRow.availableGlobally?.let { availableGlobally = it }
-                    val viewSummary = reportSheetRow.toViewSummary().apply { this.movie = movie }
-                    val existingViewSummary =
-                        this.viewSummaries.firstOrNull {
-                            it.movie == movie && it.duration == viewSummary.duration && it.startDate == viewSummary.startDate
-                        }
-                    if (existingViewSummary != null) {
-                        viewSummary.viewRank?.let { existingViewSummary.viewRank = it }
-                        viewSummary.hoursViewed?.let { existingViewSummary.hoursViewed = it }
-                        viewSummary.views?.let { existingViewSummary.views = it }
-                        viewSummary.cumulativeWeeksInTop10?.let { existingViewSummary.cumulativeWeeksInTop10 = it }
-                    } else {
-                        this.viewSummaries.add(viewSummary)
-                    }
-                }
+                reportSheetRow.originalTitle?.let { movie.originalTitle = it }
+                reportSheetRow.runtime?.let { movie.runtime = it }
+                reportSheetRow.releaseDate?.let { movie.releaseDate = it }
+                reportSheetRow.availableGlobally?.let { movie.availableGlobally = it }
+                movie.updateViewSummary(reportSheetRow)
                 return@ItemProcessor movie
             }
             if (movieTitles.contains(reportSheetRow.title)) return@ItemProcessor null
@@ -304,19 +290,7 @@ class CreateNetflixDatabaseJobConfig(
                     updatedSeason.originalTitle?.let { season.originalTitle = it }
                     updatedSeason.runtime?.let { season.runtime = it }
                     updatedSeason.releaseDate?.let { season.releaseDate = it }
-                    val viewSummary = reportSheetRow.toViewSummary().apply { this.season = season }
-                    val existingViewSummary =
-                        season.viewSummaries.firstOrNull {
-                            it.season == season && it.duration == viewSummary.duration && it.startDate == viewSummary.startDate
-                        }
-                    if (existingViewSummary != null) {
-                        viewSummary.viewRank?.let { existingViewSummary.viewRank = it }
-                        viewSummary.hoursViewed?.let { existingViewSummary.hoursViewed = it }
-                        viewSummary.views?.let { existingViewSummary.views = it }
-                        viewSummary.cumulativeWeeksInTop10?.let { existingViewSummary.cumulativeWeeksInTop10 = it }
-                    } else {
-                        season.viewSummaries.add(viewSummary)
-                    }
+                    season.updateViewSummary(reportSheetRow)
                     season
                 } ?: reportSheetRow.toSeason()
 

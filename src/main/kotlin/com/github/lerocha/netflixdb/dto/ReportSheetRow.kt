@@ -1,5 +1,6 @@
 package com.github.lerocha.netflixdb.dto
 
+import com.github.lerocha.netflixdb.entity.AbstractEntity
 import com.github.lerocha.netflixdb.entity.Movie
 import com.github.lerocha.netflixdb.entity.Season
 import com.github.lerocha.netflixdb.entity.SummaryDuration
@@ -82,5 +83,42 @@ fun ReportSheetRow.toViewSummary() =
         this.viewRank = this@toViewSummary.viewRank
         this.cumulativeWeeksInTop10 = this@toViewSummary.cumulativeWeeksInTop10
     }
+
+fun AbstractEntity.updateViewSummary(reportSheetRow: ReportSheetRow) {
+    val viewSummaries =
+        when (this) {
+            is Movie -> this.viewSummaries
+            is Season -> this.viewSummaries
+            else -> return
+        }
+    val movie = if (this is Movie) this else null
+    val season = if (this is Season) this else null
+
+    val viewSummary =
+        reportSheetRow.toViewSummary().apply {
+            this.movie = movie
+            this.season = season
+        }
+    val existingViewSummary =
+        viewSummaries.firstOrNull {
+            it.movie == movie && it.season == season && it.duration == viewSummary.duration && it.startDate == viewSummary.startDate
+        }
+    if (existingViewSummary != null) {
+        viewSummary.viewRank?.let { existingViewSummary.viewRank = it }
+        viewSummary.hoursViewed?.let { existingViewSummary.hoursViewed = it }
+        viewSummary.views?.let { existingViewSummary.views = it }
+        viewSummary.cumulativeWeeksInTop10?.let { existingViewSummary.cumulativeWeeksInTop10 = it }
+    } else {
+        viewSummaries.add(viewSummary)
+    }
+
+    if (movie is Movie) {
+        movie.viewSummaries = viewSummaries
+    }
+
+    if (season is Season) {
+        season.viewSummaries = viewSummaries
+    }
+}
 
 fun now(): Instant = LocalDate.of(2024, 1, 1).atStartOfDay().toInstant(ZoneOffset.UTC)
