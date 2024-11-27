@@ -87,10 +87,10 @@ class CreateNetflixDatabaseJobConfig(
         if (hibernateProperties.ddlAuto == "create") {
             JobBuilder("createNetflixDatabaseJob", jobRepository)
                 .incrementer(RunIdIncrementer())
-                .start(importMoviesFromEngagementReportStep)
-                .next(importMoviesFromTop10ListStep)
-                .next(importSeasonsFromEngagementReportStep)
+                .start(importMoviesFromTop10ListStep)
+                .next(importMoviesFromEngagementReportStep)
                 .next(importSeasonsFromTop10ListStep)
+                .next(importSeasonsFromEngagementReportStep)
                 .next(exportDatabaseSchemaStep)
                 .next(exportDataStep("movie", movieRepository))
                 .next(exportDataStep("tvShow", tvShowRepository))
