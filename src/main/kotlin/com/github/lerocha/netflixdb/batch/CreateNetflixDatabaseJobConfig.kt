@@ -267,6 +267,7 @@ class CreateNetflixDatabaseJobConfig(
                 reportSheetRow.runtime?.let { movie.runtime = it }
                 reportSheetRow.releaseDate?.let { movie.releaseDate = it }
                 reportSheetRow.availableGlobally?.let { movie.availableGlobally = it }
+                reportSheetRow.language?.let { movie.language = it }
                 movie.updateViewSummary(reportSheetRow)
                 movie
             } ?: reportSheetRow.toMovie()
