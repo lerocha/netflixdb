@@ -56,8 +56,7 @@ class CreateNetflixDatabaseJobConfig(
     private val databaseExportService: DatabaseExportService,
 ) {
     private val logger: Logger = LoggerFactory.getLogger(javaClass)
-    private val movieTitles: MutableSet<String> = mutableSetOf()
-    private val seasonTitles: MutableSet<String> = mutableSetOf()
+
     private val entityClasses =
         listOf(
             Movie::class.java,
@@ -69,6 +68,7 @@ class CreateNetflixDatabaseJobConfig(
 
     companion object {
         const val ARTIFACTS_DIRECTORY = "build/artifacts"
+        const val CHUNK_SIZE = 4
     }
 
     @Bean
@@ -87,10 +87,10 @@ class CreateNetflixDatabaseJobConfig(
         if (hibernateProperties.ddlAuto == "create") {
             JobBuilder("createNetflixDatabaseJob", jobRepository)
                 .incrementer(RunIdIncrementer())
-                .start(importMoviesFromTop10ListStep)
-                .next(importMoviesFromEngagementReportStep)
-                .next(importSeasonsFromTop10ListStep)
+                .start(importMoviesFromEngagementReportStep)
+                .next(importMoviesFromTop10ListStep)
                 .next(importSeasonsFromEngagementReportStep)
+                .next(importSeasonsFromTop10ListStep)
                 .next(exportDatabaseSchemaStep)
                 .next(exportDataStep("movie", movieRepository))
                 .next(exportDataStep("tvShow", tvShowRepository))
@@ -115,7 +115,7 @@ class CreateNetflixDatabaseJobConfig(
         movieWriter: RepositoryItemWriter<Movie>,
     ): Step =
         StepBuilder("importMoviesFromEngagementReportStep", jobRepository)
-            .chunk<ReportSheetRow, Movie>(10, transactionManager)
+            .chunk<ReportSheetRow, Movie>(CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(engagementReportReader)
             .processor(movieProcessor)
@@ -130,7 +130,7 @@ class CreateNetflixDatabaseJobConfig(
         movieWriter: RepositoryItemWriter<Movie>,
     ): Step =
         StepBuilder("importMoviesFromTop10ListStep", jobRepository)
-            .chunk<ReportSheetRow, Movie>(10, transactionManager)
+            .chunk<ReportSheetRow, Movie>(CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(top10ListReader)
             .processor(movieProcessor)
@@ -145,7 +145,7 @@ class CreateNetflixDatabaseJobConfig(
         seasonWriter: RepositoryItemWriter<Season>,
     ): Step =
         StepBuilder("importSeasonsFromEngagementReportStep", jobRepository)
-            .chunk<ReportSheetRow, Season>(10, transactionManager)
+            .chunk<ReportSheetRow, Season>(CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(engagementReportReader)
             .processor(seasonProcessor)
@@ -160,7 +160,7 @@ class CreateNetflixDatabaseJobConfig(
         seasonWriter: RepositoryItemWriter<Season>,
     ): Step =
         StepBuilder("importSeasonsFromTop10ListStep", jobRepository)
-            .chunk<ReportSheetRow, Season>(10, transactionManager)
+            .chunk<ReportSheetRow, Season>(CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(top10ListReader)
             .processor(seasonProcessor)
@@ -223,7 +223,7 @@ class CreateNetflixDatabaseJobConfig(
                     duration = SummaryDuration.SEMI_ANNUALLY
                     runtime = rowSet.getRuntimeInMinutes("Runtime")
                     title = titles.firstOrNull()?.trim()
-                    originalTitle = titles.lastOrNull()?.trim()
+                    originalTitle = if (rowSet.getString("Title")?.contains("//") == true) titles.lastOrNull()?.trim() else null
                     category = rowSet.metaData.sheetName?.toCategory()
                     availableGlobally = rowSet.getString("Available Globally?") == "Yes"
                     releaseDate = rowSet.getString("Release Date")?.let { if (it.isNotBlank()) LocalDate.parse(it) else null }
@@ -245,7 +245,6 @@ class CreateNetflixDatabaseJobConfig(
                     duration = SummaryDuration.WEEKLY
                     runtime = rowSet.getRuntimeInMinutes("runtime")
                     title = rowSet.getString("show_title")?.trim()
-                    originalTitle = rowSet.getString("show_title")?.trim()
                     category = rowSet.getString("category")?.toCategory()
                     language = if (rowSet.getString("category")?.contains("(English)") == true) Locale.ENGLISH else null
                     availableGlobally = null
@@ -261,18 +260,16 @@ class CreateNetflixDatabaseJobConfig(
     @Bean
     fun movieProcessor(movieRepository: MovieRepository): ItemProcessor<ReportSheetRow, Movie> =
         ItemProcessor<ReportSheetRow, Movie> { reportSheetRow ->
-            if (reportSheetRow.category != StreamingCategory.MOVIE) return@ItemProcessor null
-            movieRepository.findByTitle(reportSheetRow.title!!)?.let { movie ->
+            if (reportSheetRow.category != StreamingCategory.MOVIE || reportSheetRow.runtime == null) return@ItemProcessor null
+
+            movieRepository.findByTitleAndRuntime(reportSheetRow.title!!, reportSheetRow.runtime!!)?.let { movie ->
                 reportSheetRow.originalTitle?.let { movie.originalTitle = it }
                 reportSheetRow.runtime?.let { movie.runtime = it }
                 reportSheetRow.releaseDate?.let { movie.releaseDate = it }
                 reportSheetRow.availableGlobally?.let { movie.availableGlobally = it }
                 movie.updateViewSummary(reportSheetRow)
-                return@ItemProcessor movie
-            }
-            if (movieTitles.contains(reportSheetRow.title)) return@ItemProcessor null
-            movieTitles.add(reportSheetRow.title!!)
-            reportSheetRow.toMovie()
+                movie
+            } ?: reportSheetRow.toMovie()
         }
 
     @Bean
@@ -281,10 +278,10 @@ class CreateNetflixDatabaseJobConfig(
         tvShowRepository: TvShowRepository,
     ): ItemProcessor<ReportSheetRow, Season> =
         ItemProcessor<ReportSheetRow, Season> { reportSheetRow ->
-            if (reportSheetRow.category != StreamingCategory.TV_SHOW) return@ItemProcessor null
+            if (reportSheetRow.category != StreamingCategory.TV_SHOW || reportSheetRow.runtime == null) return@ItemProcessor null
 
             val season =
-                seasonRepository.findByTitle(reportSheetRow.title!!)?.let { season ->
+                seasonRepository.findByTitleAndRuntime(reportSheetRow.title!!, reportSheetRow.runtime!!)?.let { season ->
                     val updatedSeason = reportSheetRow.toSeason()
                     updatedSeason.seasonNumber?.let { season.seasonNumber = it }
                     updatedSeason.originalTitle?.let { season.originalTitle = it }
@@ -293,9 +290,6 @@ class CreateNetflixDatabaseJobConfig(
                     season.updateViewSummary(reportSheetRow)
                     season
                 } ?: reportSheetRow.toSeason()
-
-            if (season.id !is Long && seasonTitles.contains(reportSheetRow.title)) return@ItemProcessor null
-            seasonTitles.add(reportSheetRow.title!!)
 
             val tvShowTitle = reportSheetRow.title.toTvShowTitle()!!
             val tvShow =

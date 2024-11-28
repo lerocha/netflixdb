@@ -34,8 +34,7 @@ interface DatabaseStrategy {
             .appendLine("INSERT INTO $tableName ($names) VALUES")
             .append(
                 entities.joinToString(",\n") { entity ->
-                    val properties = getProperties(entity)
-                    val values = getSqlValues(*properties.values.toTypedArray())
+                    val values = getSqlValues(*getProperties(entity).values.toTypedArray())
                     "($values)"
                 },
             )

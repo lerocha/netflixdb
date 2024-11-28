@@ -6,5 +6,8 @@ import org.springframework.stereotype.Repository
 
 @Repository
 interface SeasonRepository : JpaRepository<Season, Long> {
-    fun findByTitle(title: String): Season?
+    fun findByTitleAndRuntime(
+        title: String,
+        runtime: Long,
+    ): Season?
 }

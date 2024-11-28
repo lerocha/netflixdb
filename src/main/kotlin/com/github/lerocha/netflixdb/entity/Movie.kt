@@ -14,7 +14,7 @@ import java.util.Locale
 @Entity
 @Table(
     indexes = [
-        Index(name = "idx_movie_title", columnList = "title", unique = true),
+        Index(name = "idx_movie_title_runtime", columnList = "title,runtime", unique = true),
     ],
 )
 class Movie : AbstractEntity() {
@@ -22,7 +22,7 @@ class Movie : AbstractEntity() {
     @Comment("The movie title")
     var title: String? = null
 
-    @Column(length = 255, nullable = false)
+    @Column(length = 255, nullable = true)
     @Comment("The movie title in its original language")
     var originalTitle: String? = null
 

@@ -53,7 +53,7 @@ fun ReportSheetRow.toTvShow() =
 
 fun String?.toTvShowTitle() =
     this?.split(":")?.lastOrNull()?.let { last ->
-        this?.replace(":$last", "")?.trim()
+        this.replace(":$last", "").trim()
     }
 
 fun ReportSheetRow.toSeason() =

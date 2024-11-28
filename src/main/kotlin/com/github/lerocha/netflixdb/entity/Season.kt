@@ -16,7 +16,7 @@ import java.time.LocalDate
 @Entity
 @Table(
     indexes = [
-        Index(name = "idx_season_title", columnList = "title", unique = true),
+        Index(name = "idx_season_title_runtime", columnList = "title,runtime", unique = true),
         Index(name = "fk_season_tv_show_id", columnList = "tv_show_id", unique = false),
     ],
 )
@@ -29,7 +29,7 @@ class Season : AbstractEntity() {
     @Comment("The season title")
     var title: String? = null
 
-    @Column(length = 255, nullable = false)
+    @Column(length = 255, nullable = true)
     @Comment("The season title in its original language")
     var originalTitle: String? = null
 

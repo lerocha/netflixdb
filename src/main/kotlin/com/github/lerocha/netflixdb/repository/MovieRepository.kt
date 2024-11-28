@@ -6,5 +6,8 @@ import org.springframework.stereotype.Repository
 
 @Repository
 interface MovieRepository : JpaRepository<Movie, Long> {
-    fun findByTitle(title: String): Movie?
+    fun findByTitleAndRuntime(
+        title: String,
+        runtime: Long,
+    ): Movie?
 }

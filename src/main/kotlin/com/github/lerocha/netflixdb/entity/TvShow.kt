@@ -21,7 +21,7 @@ class TvShow : AbstractEntity() {
     @Comment("The TV show title")
     var title: String? = null
 
-    @Column(length = 255, nullable = false)
+    @Column(length = 255, nullable = true)
     @Comment("The TV show title in its original language")
     var originalTitle: String? = null
 
