@@ -31,6 +31,7 @@ import org.springframework.batch.core.repository.JobRepository
 import org.springframework.batch.core.step.builder.StepBuilder
 import org.springframework.batch.extensions.excel.poi.PoiItemReader
 import org.springframework.batch.extensions.excel.support.rowset.RowSet
+import org.springframework.batch.item.Chunk
 import org.springframework.batch.item.ItemProcessor
 import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder
 import org.springframework.batch.repeat.RepeatStatus
@@ -46,6 +47,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.time.LocalDate
+import java.util.LinkedList
 import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -69,21 +71,21 @@ class CreateNetflixDatabaseJobConfig(
             ViewSummary::class.java,
         )
 
+    private val movies = LinkedList<ReportSheetRow>()
+    private val seasons = LinkedList<ReportSheetRow>()
+
     companion object {
         const val ARTIFACTS_DIRECTORY = "build/artifacts"
-        const val ENGAGEMENT_REPORT_CHUNK_SIZE = 100
-        const val TOP10_CHUNK_SIZE = 8
     }
 
     @Bean
     fun createNetflixDatabaseJob(
         hibernateProperties: HibernateProperties,
-        importMoviesFromEngagementReport2024FirstHalfStep: Step,
-        importMoviesFromEngagementReport2023SecondHalfStep: Step,
-        importSeasonsFromEngagementReport2024FirstHalfStep: Step,
-        importSeasonsFromEngagementReport2023SecondHalfStep: Step,
-        importMoviesFromTop10ListStep: Step,
-        importSeasonsFromTop10ListStep: Step,
+        importEngagementReport20240101Step: Step,
+        importEngagementReport20230701Step: Step,
+        importTop10ListStep: Step,
+        importMoviesStep: Step,
+        importSeasonsStep: Step,
         exportDatabaseSchemaStep: Step,
         fileCompressionStep: Step,
         movieRepository: MovieRepository,
@@ -94,12 +96,11 @@ class CreateNetflixDatabaseJobConfig(
         if (hibernateProperties.ddlAuto == "create") {
             JobBuilder(getFunctionName(), jobRepository)
                 .incrementer(RunIdIncrementer())
-                .start(importMoviesFromEngagementReport2024FirstHalfStep)
-                .next(importMoviesFromEngagementReport2023SecondHalfStep)
-                .next(importMoviesFromTop10ListStep)
-                .next(importSeasonsFromEngagementReport2024FirstHalfStep)
-                .next(importSeasonsFromEngagementReport2023SecondHalfStep)
-                .next(importSeasonsFromTop10ListStep)
+                .start(importEngagementReport20240101Step)
+                .next(importEngagementReport20230701Step)
+                .next(importTop10ListStep)
+                .next(importMoviesStep)
+                .next(importSeasonsStep)
                 .next(exportDatabaseSchemaStep)
                 .next(exportDataStep("movie", movieRepository))
                 .next(exportDataStep("tvShow", tvShowRepository))
@@ -120,86 +121,64 @@ class CreateNetflixDatabaseJobConfig(
         }
 
     @Bean
-    fun importMoviesFromEngagementReport2024FirstHalfStep(
-        movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
-        movieRepository: MovieRepository,
-    ): Step =
+    fun importEngagementReport20240101Step(): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Movie>(ENGAGEMENT_REPORT_CHUNK_SIZE, transactionManager)
+            .chunk<ReportSheetRow, ReportSheetRow>(100, transactionManager)
             .allowStartIfComplete(true)
-            .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2024_FIRST_HALF))
-            .processor(movieProcessor)
-            .writer { chunk -> movieRepository.saveAll(chunk.items) }
+            .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2024_01_01))
+            .processor { item -> item }
+            .writer { chunk -> writeReportSheetRow(chunk) }
             .faultTolerant()
             .build()
 
     @Bean
-    fun importMoviesFromEngagementReport2023SecondHalfStep(
-        movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
-        movieRepository: MovieRepository,
-    ): Step =
+    fun importEngagementReport20230701Step(): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Movie>(ENGAGEMENT_REPORT_CHUNK_SIZE, transactionManager)
+            .chunk<ReportSheetRow, ReportSheetRow>(100, transactionManager)
             .allowStartIfComplete(true)
-            .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2023_SECOND_HALF))
-            .processor(movieProcessor)
-            .writer { chunk -> movieRepository.saveAll(chunk.items) }
+            .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2023_07_01))
+            .processor { item -> item }
+            .writer { chunk -> writeReportSheetRow(chunk) }
             .faultTolerant()
             .build()
 
     @Bean
-    fun importMoviesFromTop10ListStep(
+    fun importTop10ListStep(
         top10ListReader: PoiItemReader<ReportSheetRow>,
-        movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
         movieRepository: MovieRepository,
     ): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Movie>(TOP10_CHUNK_SIZE, transactionManager)
+            .chunk<ReportSheetRow, ReportSheetRow>(100, transactionManager)
             .allowStartIfComplete(true)
             .reader(top10ListReader)
+            .processor { item -> item }
+            .writer { chunk -> writeReportSheetRow(chunk) }
+            .faultTolerant()
+            .build()
+
+    @Bean
+    fun importMoviesStep(
+        movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
+        movieRepository: MovieRepository,
+    ): Step =
+        StepBuilder(getFunctionName(), jobRepository)
+            .chunk<ReportSheetRow, Movie>(10, transactionManager)
+            .allowStartIfComplete(true)
+            .reader { if (movies.isNotEmpty()) movies.removeFirst() else null }
             .processor(movieProcessor)
             .writer { chunk -> movieRepository.saveAll(chunk.items) }
             .faultTolerant()
             .build()
 
     @Bean
-    fun importSeasonsFromEngagementReport2024FirstHalfStep(
+    fun importSeasonsStep(
         seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
         seasonRepository: SeasonRepository,
     ): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Season>(ENGAGEMENT_REPORT_CHUNK_SIZE, transactionManager)
+            .chunk<ReportSheetRow, Season>(5, transactionManager)
             .allowStartIfComplete(true)
-            .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2024_FIRST_HALF))
-            .processor(seasonProcessor)
-            .writer { chunk -> seasonRepository.saveAll(chunk.items) }
-            .faultTolerant()
-            .build()
-
-    @Bean
-    fun importSeasonsFromEngagementReport2023SecondHalfStep(
-        seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
-        seasonRepository: SeasonRepository,
-    ): Step =
-        StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Season>(ENGAGEMENT_REPORT_CHUNK_SIZE, transactionManager)
-            .allowStartIfComplete(true)
-            .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2023_SECOND_HALF))
-            .processor(seasonProcessor)
-            .writer { chunk -> seasonRepository.saveAll(chunk.items) }
-            .faultTolerant()
-            .build()
-
-    @Bean
-    fun importSeasonsFromTop10ListStep(
-        top10ListReader: PoiItemReader<ReportSheetRow>,
-        seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
-        seasonRepository: SeasonRepository,
-    ): Step =
-        StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Season>(TOP10_CHUNK_SIZE, transactionManager)
-            .allowStartIfComplete(true)
-            .reader(top10ListReader)
+            .reader { if (seasons.isNotEmpty()) seasons.removeFirst() else null }
             .processor(seasonProcessor)
             .writer { chunk -> seasonRepository.saveAll(chunk.items) }
             .faultTolerant()
@@ -364,6 +343,16 @@ class CreateNetflixDatabaseJobConfig(
             season.tvShow = tvShowRepository.save(tvShow)
             season
         }
+
+    private fun writeReportSheetRow(chunk: Chunk<out ReportSheetRow>) {
+        chunk.items.forEach { item ->
+            when (item.category) {
+                StreamingCategory.MOVIE -> movies.add(item)
+                StreamingCategory.TV_SHOW -> seasons.add(item)
+                else -> {}
+            }
+        }
+    }
 
     private fun RowSet.getString(key: String): String? = this.properties.getProperty(key)
 
