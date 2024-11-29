@@ -1,5 +1,6 @@
 package com.github.lerocha.netflixdb.batch
 
+import com.github.lerocha.netflixdb.dto.EngagementReport
 import com.github.lerocha.netflixdb.dto.ReportSheetRow
 import com.github.lerocha.netflixdb.dto.StreamingCategory
 import com.github.lerocha.netflixdb.dto.toCategory
@@ -78,8 +79,10 @@ class CreateNetflixDatabaseJobConfig(
     @Bean
     fun createNetflixDatabaseJob(
         hibernateProperties: HibernateProperties,
-        importMoviesFromEngagementReportStep: Step,
-        importSeasonsFromEngagementReportStep: Step,
+        importMoviesFromEngagementReport2024FirstHalfStep: Step,
+        importMoviesFromEngagementReport2023SecondHalfStep: Step,
+        importSeasonsFromEngagementReport2024FirstHalfStep: Step,
+        importSeasonsFromEngagementReport2023SecondHalfStep: Step,
         importMoviesFromTop10ListStep: Step,
         importSeasonsFromTop10ListStep: Step,
         exportDatabaseSchemaStep: Step,
@@ -92,9 +95,11 @@ class CreateNetflixDatabaseJobConfig(
         if (hibernateProperties.ddlAuto == "create") {
             JobBuilder("createNetflixDatabaseJob", jobRepository)
                 .incrementer(RunIdIncrementer())
-                .start(importMoviesFromEngagementReportStep)
+                .start(importMoviesFromEngagementReport2024FirstHalfStep)
+                .next(importMoviesFromEngagementReport2023SecondHalfStep)
                 .next(importMoviesFromTop10ListStep)
-                .next(importSeasonsFromEngagementReportStep)
+                .next(importSeasonsFromEngagementReport2024FirstHalfStep)
+                .next(importSeasonsFromEngagementReport2023SecondHalfStep)
                 .next(importSeasonsFromTop10ListStep)
                 .next(exportDatabaseSchemaStep)
                 .next(exportDataStep("movie", movieRepository))
@@ -116,15 +121,28 @@ class CreateNetflixDatabaseJobConfig(
         }
 
     @Bean
-    fun importMoviesFromEngagementReportStep(
-        engagementReportReader: PoiItemReader<ReportSheetRow>,
+    fun importMoviesFromEngagementReport2024FirstHalfStep(
         movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
         movieWriter: RepositoryItemWriter<Movie>,
     ): Step =
-        StepBuilder("importMoviesFromEngagementReportStep", jobRepository)
+        StepBuilder("importMoviesFromEngagementReport2024FirstHalfStep", jobRepository)
             .chunk<ReportSheetRow, Movie>(CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
-            .reader(engagementReportReader)
+            .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2024_FIRST_HALF))
+            .processor(movieProcessor)
+            .writer(movieWriter)
+            .faultTolerant()
+            .build()
+
+    @Bean
+    fun importMoviesFromEngagementReport2023SecondHalfStep(
+        movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
+        movieWriter: RepositoryItemWriter<Movie>,
+    ): Step =
+        StepBuilder("importMoviesFromEngagementReport2023SecondHalfStep", jobRepository)
+            .chunk<ReportSheetRow, Movie>(CHUNK_SIZE, transactionManager)
+            .allowStartIfComplete(true)
+            .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2023_SECOND_HALF))
             .processor(movieProcessor)
             .writer(movieWriter)
             .faultTolerant()
@@ -146,15 +164,28 @@ class CreateNetflixDatabaseJobConfig(
             .build()
 
     @Bean
-    fun importSeasonsFromEngagementReportStep(
-        engagementReportReader: PoiItemReader<ReportSheetRow>,
+    fun importSeasonsFromEngagementReport2024FirstHalfStep(
         seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
         seasonWriter: RepositoryItemWriter<Season>,
     ): Step =
-        StepBuilder("importSeasonsFromEngagementReportStep", jobRepository)
+        StepBuilder("importSeasonsFromEngagementReport2024FirstHalfStep", jobRepository)
             .chunk<ReportSheetRow, Season>(CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
-            .reader(engagementReportReader)
+            .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2024_FIRST_HALF))
+            .processor(seasonProcessor)
+            .writer(seasonWriter)
+            .faultTolerant()
+            .build()
+
+    @Bean
+    fun importSeasonsFromEngagementReport2023SecondHalfStep(
+        seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
+        seasonWriter: RepositoryItemWriter<Season>,
+    ): Step =
+        StepBuilder("importSeasonsFromEngagementReport2023SecondHalfStep", jobRepository)
+            .chunk<ReportSheetRow, Season>(CHUNK_SIZE, transactionManager)
+            .allowStartIfComplete(true)
+            .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2023_SECOND_HALF))
             .processor(seasonProcessor)
             .writer(seasonWriter)
             .faultTolerant()
@@ -239,17 +270,16 @@ class CreateNetflixDatabaseJobConfig(
             }, transactionManager)
             .build()
 
-    @Bean
-    fun engagementReportReader() =
+    fun engagementReportReader(engagementReport: EngagementReport) =
         PoiItemReader<ReportSheetRow>().apply {
             setLinesToSkip(1)
-            setResource(ClassPathResource("reports/What_We_Watched_A_Netflix_Engagement_Report_2024Jan-Jun.xlsx"))
+            setResource(ClassPathResource(engagementReport.path))
             setRowMapper { rowSet ->
                 val titles = rowSet.getString("Title")?.split("//") ?: emptyList()
                 ReportSheetRow().apply {
-                    startDate = LocalDate.parse("2024-01-01")
-                    endDate = LocalDate.parse("2024-06-30")
-                    duration = SummaryDuration.SEMI_ANNUALLY
+                    startDate = engagementReport.startDate
+                    endDate = engagementReport.endDate
+                    duration = engagementReport.duration
                     runtime = rowSet.getRuntimeInMinutes("Runtime")
                     title = titles.firstOrNull()?.trim()
                     originalTitle = if (rowSet.getString("Title")?.contains("//") == true) titles.lastOrNull()?.trim() else null
