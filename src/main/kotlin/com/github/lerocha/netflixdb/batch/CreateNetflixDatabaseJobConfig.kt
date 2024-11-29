@@ -44,8 +44,12 @@ import org.springframework.data.domain.Sort
 import org.springframework.data.jpa.repository.JpaRepository
 import org.springframework.transaction.PlatformTransactionManager
 import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.time.LocalDate
 import java.util.Locale
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlin.time.Duration
 
 @Configuration
@@ -79,6 +83,7 @@ class CreateNetflixDatabaseJobConfig(
         importMoviesFromTop10ListStep: Step,
         importSeasonsFromTop10ListStep: Step,
         exportDatabaseSchemaStep: Step,
+        fileCompressionStep: Step,
         movieRepository: MovieRepository,
         tvShowRepository: TvShowRepository,
         seasonRepository: SeasonRepository,
@@ -96,6 +101,7 @@ class CreateNetflixDatabaseJobConfig(
                 .next(exportDataStep("tvShow", tvShowRepository))
                 .next(exportDataStep("season", seasonRepository))
                 .next(exportDataStep("viewSummary", viewSummaryRepository))
+                .next(fileCompressionStep)
                 .build()
         } else {
             JobBuilder("createNetflixDatabaseJob", jobRepository)
@@ -105,6 +111,7 @@ class CreateNetflixDatabaseJobConfig(
                 .next(exportDataStep("tvShow", tvShowRepository))
                 .next(exportDataStep("season", seasonRepository))
                 .next(exportDataStep("viewSummary", viewSummaryRepository))
+                .next(fileCompressionStep)
                 .build()
         }
 
@@ -208,6 +215,28 @@ class CreateNetflixDatabaseJobConfig(
                     .appendText(databaseExportService.getInsertStatement(dataSourceProperties.name, chunk.items))
             }
             .faultTolerant()
+            .build()
+
+    @Bean
+    fun fileCompressionStep(dataSourceProperties: DataSourceProperties): Step =
+        StepBuilder("fileCompressionStep", jobRepository)
+            .tasklet({ contribution, chunkContext ->
+                val sqlFilename = "$ARTIFACTS_DIRECTORY/netflixdb-${dataSourceProperties.name}.sql"
+                val zipFilename = "$ARTIFACTS_DIRECTORY/netflixdb-${dataSourceProperties.name}.zip"
+                FileOutputStream(zipFilename).use { fileOutputStream ->
+                    ZipOutputStream(fileOutputStream).use { zipOutputStream ->
+                        val sqlFile = File(sqlFilename)
+                        val fileInputStream = FileInputStream(sqlFile)
+                        val zipEntry = ZipEntry(sqlFile.name)
+                        zipOutputStream.putNextEntry(zipEntry)
+                        zipOutputStream.write(fileInputStream.readAllBytes())
+                    }
+                }
+                logger.info(
+                    "${chunkContext.stepContext.jobName}.${contribution.stepExecution.stepName}: $sqlFilename -> $zipFilename",
+                )
+                RepeatStatus.FINISHED
+            }, transactionManager)
             .build()
 
     @Bean
