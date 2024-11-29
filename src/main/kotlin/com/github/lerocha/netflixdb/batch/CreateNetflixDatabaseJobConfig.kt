@@ -32,9 +32,7 @@ import org.springframework.batch.core.step.builder.StepBuilder
 import org.springframework.batch.extensions.excel.poi.PoiItemReader
 import org.springframework.batch.extensions.excel.support.rowset.RowSet
 import org.springframework.batch.item.ItemProcessor
-import org.springframework.batch.item.data.RepositoryItemWriter
 import org.springframework.batch.item.data.builder.RepositoryItemReaderBuilder
-import org.springframework.batch.item.data.builder.RepositoryItemWriterBuilder
 import org.springframework.batch.repeat.RepeatStatus
 import org.springframework.boot.autoconfigure.jdbc.DataSourceProperties
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateProperties
@@ -73,7 +71,8 @@ class CreateNetflixDatabaseJobConfig(
 
     companion object {
         const val ARTIFACTS_DIRECTORY = "build/artifacts"
-        const val CHUNK_SIZE = 4
+        const val ENGAGEMENT_REPORT_CHUNK_SIZE = 100
+        const val TOP10_CHUNK_SIZE = 8
     }
 
     @Bean
@@ -123,28 +122,28 @@ class CreateNetflixDatabaseJobConfig(
     @Bean
     fun importMoviesFromEngagementReport2024FirstHalfStep(
         movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
-        movieWriter: RepositoryItemWriter<Movie>,
+        movieRepository: MovieRepository,
     ): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Movie>(CHUNK_SIZE, transactionManager)
+            .chunk<ReportSheetRow, Movie>(ENGAGEMENT_REPORT_CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2024_FIRST_HALF))
             .processor(movieProcessor)
-            .writer(movieWriter)
+            .writer { chunk -> movieRepository.saveAll(chunk.items) }
             .faultTolerant()
             .build()
 
     @Bean
     fun importMoviesFromEngagementReport2023SecondHalfStep(
         movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
-        movieWriter: RepositoryItemWriter<Movie>,
+        movieRepository: MovieRepository,
     ): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Movie>(CHUNK_SIZE, transactionManager)
+            .chunk<ReportSheetRow, Movie>(ENGAGEMENT_REPORT_CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2023_SECOND_HALF))
             .processor(movieProcessor)
-            .writer(movieWriter)
+            .writer { chunk -> movieRepository.saveAll(chunk.items) }
             .faultTolerant()
             .build()
 
@@ -152,42 +151,42 @@ class CreateNetflixDatabaseJobConfig(
     fun importMoviesFromTop10ListStep(
         top10ListReader: PoiItemReader<ReportSheetRow>,
         movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
-        movieWriter: RepositoryItemWriter<Movie>,
+        movieRepository: MovieRepository,
     ): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Movie>(CHUNK_SIZE, transactionManager)
+            .chunk<ReportSheetRow, Movie>(TOP10_CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(top10ListReader)
             .processor(movieProcessor)
-            .writer(movieWriter)
+            .writer { chunk -> movieRepository.saveAll(chunk.items) }
             .faultTolerant()
             .build()
 
     @Bean
     fun importSeasonsFromEngagementReport2024FirstHalfStep(
         seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
-        seasonWriter: RepositoryItemWriter<Season>,
+        seasonRepository: SeasonRepository,
     ): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Season>(CHUNK_SIZE, transactionManager)
+            .chunk<ReportSheetRow, Season>(ENGAGEMENT_REPORT_CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2024_FIRST_HALF))
             .processor(seasonProcessor)
-            .writer(seasonWriter)
+            .writer { chunk -> seasonRepository.saveAll(chunk.items) }
             .faultTolerant()
             .build()
 
     @Bean
     fun importSeasonsFromEngagementReport2023SecondHalfStep(
         seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
-        seasonWriter: RepositoryItemWriter<Season>,
+        seasonRepository: SeasonRepository,
     ): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Season>(CHUNK_SIZE, transactionManager)
+            .chunk<ReportSheetRow, Season>(ENGAGEMENT_REPORT_CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2023_SECOND_HALF))
             .processor(seasonProcessor)
-            .writer(seasonWriter)
+            .writer { chunk -> seasonRepository.saveAll(chunk.items) }
             .faultTolerant()
             .build()
 
@@ -195,14 +194,14 @@ class CreateNetflixDatabaseJobConfig(
     fun importSeasonsFromTop10ListStep(
         top10ListReader: PoiItemReader<ReportSheetRow>,
         seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
-        seasonWriter: RepositoryItemWriter<Season>,
+        seasonRepository: SeasonRepository,
     ): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Season>(CHUNK_SIZE, transactionManager)
+            .chunk<ReportSheetRow, Season>(TOP10_CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(top10ListReader)
             .processor(seasonProcessor)
-            .writer(seasonWriter)
+            .writer { chunk -> seasonRepository.saveAll(chunk.items) }
             .faultTolerant()
             .build()
 
@@ -365,20 +364,6 @@ class CreateNetflixDatabaseJobConfig(
             season.tvShow = tvShowRepository.save(tvShow)
             season
         }
-
-    @Bean
-    fun movieWriter(movieRepository: MovieRepository): RepositoryItemWriter<Movie> =
-        RepositoryItemWriterBuilder<Movie>()
-            .repository(movieRepository)
-            .methodName("save")
-            .build()
-
-    @Bean
-    fun seasonWriter(seasonRepository: SeasonRepository): RepositoryItemWriter<Season> =
-        RepositoryItemWriterBuilder<Season>()
-            .repository(seasonRepository)
-            .methodName("save")
-            .build()
 
     private fun RowSet.getString(key: String): String? = this.properties.getProperty(key)
 
