@@ -16,7 +16,7 @@ import java.time.LocalDate
 @Entity
 @Table(
     indexes = [
-        Index(name = "idx_season_title_runtime", columnList = "title,runtime", unique = true),
+        Index(name = "idx_season_title_runtime", columnList = "title,runtime", unique = false),
         Index(name = "fk_season_tv_show_id", columnList = "tv_show_id", unique = false),
     ],
 )

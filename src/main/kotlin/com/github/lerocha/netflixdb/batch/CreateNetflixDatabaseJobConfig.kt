@@ -7,7 +7,6 @@ import com.github.lerocha.netflixdb.dto.toCategory
 import com.github.lerocha.netflixdb.dto.toMovie
 import com.github.lerocha.netflixdb.dto.toSeason
 import com.github.lerocha.netflixdb.dto.toTvShow
-import com.github.lerocha.netflixdb.dto.toTvShowTitle
 import com.github.lerocha.netflixdb.dto.updateViewSummary
 import com.github.lerocha.netflixdb.entity.AbstractEntity
 import com.github.lerocha.netflixdb.entity.Episode
@@ -47,7 +46,6 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.time.LocalDate
-import java.util.LinkedList
 import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -61,7 +59,8 @@ class CreateNetflixDatabaseJobConfig(
     private val databaseExportService: DatabaseExportService,
 ) {
     private val logger: Logger = LoggerFactory.getLogger(javaClass)
-
+    private val moviesMap = mutableMapOf<Pair<String, Long>, MutableSet<ReportSheetRow>>()
+    private val seasonsMap = mutableMapOf<Pair<String, Long>, MutableSet<ReportSheetRow>>()
     private val entityClasses =
         listOf(
             Movie::class.java,
@@ -70,9 +69,6 @@ class CreateNetflixDatabaseJobConfig(
             Episode::class.java,
             ViewSummary::class.java,
         )
-
-    private val movies = LinkedList<ReportSheetRow>()
-    private val seasons = LinkedList<ReportSheetRow>()
 
     companion object {
         const val ARTIFACTS_DIRECTORY = "build/artifacts"
@@ -84,8 +80,8 @@ class CreateNetflixDatabaseJobConfig(
         importEngagementReport20240101Step: Step,
         importEngagementReport20230701Step: Step,
         importTop10ListStep: Step,
-        importMoviesStep: Step,
-        importSeasonsStep: Step,
+        populateMovieTableStep: Step,
+        populateSeasonTableStep: Step,
         exportDatabaseSchemaStep: Step,
         fileCompressionStep: Step,
         movieRepository: MovieRepository,
@@ -99,8 +95,8 @@ class CreateNetflixDatabaseJobConfig(
                 .start(importEngagementReport20240101Step)
                 .next(importEngagementReport20230701Step)
                 .next(importTop10ListStep)
-                .next(importMoviesStep)
-                .next(importSeasonsStep)
+                .next(populateMovieTableStep)
+                .next(populateSeasonTableStep)
                 .next(exportDatabaseSchemaStep)
                 .next(exportDataStep("movie", movieRepository))
                 .next(exportDataStep("tvShow", tvShowRepository))
@@ -157,28 +153,28 @@ class CreateNetflixDatabaseJobConfig(
             .build()
 
     @Bean
-    fun importMoviesStep(
-        movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
+    fun populateMovieTableStep(
+        movieProcessor: ItemProcessor<Set<ReportSheetRow>, Movie>,
         movieRepository: MovieRepository,
     ): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Movie>(10, transactionManager)
+            .chunk<Set<ReportSheetRow>, Movie>(50, transactionManager)
             .allowStartIfComplete(true)
-            .reader { if (movies.isNotEmpty()) movies.removeFirst() else null }
+            .reader { if (moviesMap.isNotEmpty()) moviesMap.remove(moviesMap.keys.first()) else null }
             .processor(movieProcessor)
             .writer { chunk -> movieRepository.saveAll(chunk.items) }
             .faultTolerant()
             .build()
 
     @Bean
-    fun importSeasonsStep(
-        seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
+    fun populateSeasonTableStep(
+        seasonProcessor: ItemProcessor<Set<ReportSheetRow>, Season>,
         seasonRepository: SeasonRepository,
     ): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, Season>(5, transactionManager)
+            .chunk<Set<ReportSheetRow>, Season>(50, transactionManager)
             .allowStartIfComplete(true)
-            .reader { if (seasons.isNotEmpty()) seasons.removeFirst() else null }
+            .reader { if (seasonsMap.isNotEmpty()) seasonsMap.remove(seasonsMap.keys.first()) else null }
             .processor(seasonProcessor)
             .writer { chunk -> seasonRepository.saveAll(chunk.items) }
             .faultTolerant()
@@ -295,11 +291,9 @@ class CreateNetflixDatabaseJobConfig(
         }
 
     @Bean
-    fun movieProcessor(movieRepository: MovieRepository): ItemProcessor<ReportSheetRow, Movie> =
-        ItemProcessor<ReportSheetRow, Movie> { reportSheetRow ->
-            if (reportSheetRow.category != StreamingCategory.MOVIE || reportSheetRow.runtime == null) return@ItemProcessor null
-
-            movieRepository.findByTitleAndRuntime(reportSheetRow.title!!, reportSheetRow.runtime!!)?.let { movie ->
+    fun movieProcessor(movieRepository: MovieRepository): ItemProcessor<Set<ReportSheetRow>, Movie> =
+        ItemProcessor<Set<ReportSheetRow>, Movie> { reportSheetRows ->
+            reportSheetRows.fold(reportSheetRows.first().toMovie()) { movie, reportSheetRow ->
                 reportSheetRow.originalTitle?.let { movie.originalTitle = it }
                 reportSheetRow.runtime?.let { movie.runtime = it }
                 reportSheetRow.releaseDate?.let { movie.releaseDate = it }
@@ -307,48 +301,44 @@ class CreateNetflixDatabaseJobConfig(
                 reportSheetRow.language?.let { movie.language = it }
                 movie.updateViewSummary(reportSheetRow)
                 movie
-            } ?: reportSheetRow.toMovie()
+            }
         }
 
     @Bean
     fun seasonProcessor(
         seasonRepository: SeasonRepository,
         tvShowRepository: TvShowRepository,
-    ): ItemProcessor<ReportSheetRow, Season> =
-        ItemProcessor<ReportSheetRow, Season> { reportSheetRow ->
-            if (reportSheetRow.category != StreamingCategory.TV_SHOW || reportSheetRow.runtime == null) return@ItemProcessor null
-
+    ): ItemProcessor<Set<ReportSheetRow>, Season> =
+        ItemProcessor<Set<ReportSheetRow>, Season> { reportSheetRows ->
             val season =
-                seasonRepository.findByTitleAndRuntime(reportSheetRow.title!!, reportSheetRow.runtime!!)?.let { season ->
+                reportSheetRows.fold(reportSheetRows.first().toSeason()) { season, reportSheetRow ->
                     val updatedSeason = reportSheetRow.toSeason()
                     updatedSeason.seasonNumber?.let { season.seasonNumber = it }
                     updatedSeason.originalTitle?.let { season.originalTitle = it }
                     updatedSeason.runtime?.let { season.runtime = it }
                     updatedSeason.releaseDate?.let { season.releaseDate = it }
                     season.updateViewSummary(reportSheetRow)
-                    season
-                } ?: reportSheetRow.toSeason()
 
-            val tvShowTitle = reportSheetRow.title.toTvShowTitle()!!
-            val tvShow =
-                (season.tvShow ?: tvShowRepository.findByTitle(tvShowTitle))?.let { tvShow ->
                     val updatedTvShow = reportSheetRow.toTvShow()
-                    updatedTvShow.originalTitle?.let { tvShow.originalTitle = it }
-                    updatedTvShow.releaseDate?.let { tvShow.releaseDate = it }
-                    updatedTvShow.availableGlobally?.let { tvShow.availableGlobally = it }
-                    updatedTvShow.language?.let { tvShow.language = it }
-                    tvShow
-                } ?: reportSheetRow.toTvShow()
-
-            season.tvShow = tvShowRepository.save(tvShow)
+                    season.tvShow = (season.tvShow ?: tvShowRepository.findByTitle(updatedTvShow.title!!))?.let { tvShow ->
+                        updatedTvShow.originalTitle?.let { tvShow.originalTitle = it }
+                        updatedTvShow.releaseDate?.let { tvShow.releaseDate = it }
+                        updatedTvShow.availableGlobally?.let { tvShow.availableGlobally = it }
+                        updatedTvShow.language?.let { tvShow.language = it }
+                        tvShow
+                    } ?: updatedTvShow
+                    season
+                }
+            season.tvShow = tvShowRepository.save(season.tvShow!!)
             season
         }
 
     private fun writeReportSheetRow(chunk: Chunk<out ReportSheetRow>) {
-        chunk.items.forEach { item ->
+        chunk.items.filter { it.title is String && it.runtime is Long }.forEach { item ->
+            val key = Pair(item.title!!, item.runtime!!)
             when (item.category) {
-                StreamingCategory.MOVIE -> movies.add(item)
-                StreamingCategory.TV_SHOW -> seasons.add(item)
+                StreamingCategory.MOVIE -> moviesMap.getOrPut(key) { mutableSetOf() }.add(item)
+                StreamingCategory.TV_SHOW -> seasonsMap.getOrPut(key) { mutableSetOf() }.add(item)
                 else -> {}
             }
         }

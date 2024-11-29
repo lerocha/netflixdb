@@ -14,7 +14,7 @@ import java.util.Locale
 @Entity
 @Table(
     indexes = [
-        Index(name = "idx_movie_title_runtime", columnList = "title,runtime", unique = true),
+        Index(name = "idx_movie_title_runtime", columnList = "title,runtime", unique = false),
     ],
 )
 class Movie : AbstractEntity() {
