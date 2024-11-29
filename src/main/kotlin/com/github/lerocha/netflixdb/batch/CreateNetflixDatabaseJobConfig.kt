@@ -93,7 +93,7 @@ class CreateNetflixDatabaseJobConfig(
         viewSummaryRepository: ViewSummaryRepository,
     ): Job =
         if (hibernateProperties.ddlAuto == "create") {
-            JobBuilder("createNetflixDatabaseJob", jobRepository)
+            JobBuilder(getFunctionName(), jobRepository)
                 .incrementer(RunIdIncrementer())
                 .start(importMoviesFromEngagementReport2024FirstHalfStep)
                 .next(importMoviesFromEngagementReport2023SecondHalfStep)
@@ -109,7 +109,7 @@ class CreateNetflixDatabaseJobConfig(
                 .next(fileCompressionStep)
                 .build()
         } else {
-            JobBuilder("createNetflixDatabaseJob", jobRepository)
+            JobBuilder(getFunctionName(), jobRepository)
                 .incrementer(RunIdIncrementer())
                 .start(exportDatabaseSchemaStep)
                 .next(exportDataStep("movie", movieRepository))
@@ -125,7 +125,7 @@ class CreateNetflixDatabaseJobConfig(
         movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
         movieWriter: RepositoryItemWriter<Movie>,
     ): Step =
-        StepBuilder("importMoviesFromEngagementReport2024FirstHalfStep", jobRepository)
+        StepBuilder(getFunctionName(), jobRepository)
             .chunk<ReportSheetRow, Movie>(CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2024_FIRST_HALF))
@@ -139,7 +139,7 @@ class CreateNetflixDatabaseJobConfig(
         movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
         movieWriter: RepositoryItemWriter<Movie>,
     ): Step =
-        StepBuilder("importMoviesFromEngagementReport2023SecondHalfStep", jobRepository)
+        StepBuilder(getFunctionName(), jobRepository)
             .chunk<ReportSheetRow, Movie>(CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2023_SECOND_HALF))
@@ -154,7 +154,7 @@ class CreateNetflixDatabaseJobConfig(
         movieProcessor: ItemProcessor<ReportSheetRow, Movie>,
         movieWriter: RepositoryItemWriter<Movie>,
     ): Step =
-        StepBuilder("importMoviesFromTop10ListStep", jobRepository)
+        StepBuilder(getFunctionName(), jobRepository)
             .chunk<ReportSheetRow, Movie>(CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(top10ListReader)
@@ -168,7 +168,7 @@ class CreateNetflixDatabaseJobConfig(
         seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
         seasonWriter: RepositoryItemWriter<Season>,
     ): Step =
-        StepBuilder("importSeasonsFromEngagementReport2024FirstHalfStep", jobRepository)
+        StepBuilder(getFunctionName(), jobRepository)
             .chunk<ReportSheetRow, Season>(CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2024_FIRST_HALF))
@@ -182,7 +182,7 @@ class CreateNetflixDatabaseJobConfig(
         seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
         seasonWriter: RepositoryItemWriter<Season>,
     ): Step =
-        StepBuilder("importSeasonsFromEngagementReport2023SecondHalfStep", jobRepository)
+        StepBuilder(getFunctionName(), jobRepository)
             .chunk<ReportSheetRow, Season>(CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2023_SECOND_HALF))
@@ -197,7 +197,7 @@ class CreateNetflixDatabaseJobConfig(
         seasonProcessor: ItemProcessor<ReportSheetRow, Season>,
         seasonWriter: RepositoryItemWriter<Season>,
     ): Step =
-        StepBuilder("importSeasonsFromTop10ListStep", jobRepository)
+        StepBuilder(getFunctionName(), jobRepository)
             .chunk<ReportSheetRow, Season>(CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(top10ListReader)
@@ -211,7 +211,7 @@ class CreateNetflixDatabaseJobConfig(
         dataSourceProperties: DataSourceProperties,
         databaseExportService: DatabaseExportService,
     ): Step =
-        StepBuilder("exportDatabaseSchemaStep", jobRepository)
+        StepBuilder(getFunctionName(), jobRepository)
             .tasklet({ contribution, chunkContext ->
                 databaseExportService.exportSchema(
                     title = "Netflix database",
@@ -250,7 +250,7 @@ class CreateNetflixDatabaseJobConfig(
 
     @Bean
     fun fileCompressionStep(dataSourceProperties: DataSourceProperties): Step =
-        StepBuilder("fileCompressionStep", jobRepository)
+        StepBuilder(getFunctionName(), jobRepository)
             .tasklet({ contribution, chunkContext ->
                 val sqlFilename = "$ARTIFACTS_DIRECTORY/netflixdb-${dataSourceProperties.name}.sql"
                 val zipFilename = "$ARTIFACTS_DIRECTORY/netflixdb-${dataSourceProperties.name}.zip"
@@ -394,4 +394,8 @@ class CreateNetflixDatabaseJobConfig(
                 else -> it.toBigDecimalOrNull()?.multiply(60.toBigDecimal())?.toLong()
             }
         }
+
+    private fun getFunctionName(): String {
+        return Exception().stackTrace[1].methodName
+    }
 }
