@@ -15,7 +15,7 @@ data class ReportSheetRow(
     var title: String? = null,
     var originalTitle: String? = null,
     var category: StreamingCategory? = null,
-    var language: Locale? = null,
+    var locale: Locale? = null,
     var runtime: Long? = null,
     var releaseDate: LocalDate? = null,
     var availableGlobally: Boolean? = false,
@@ -37,7 +37,7 @@ fun ReportSheetRow.toMovie() =
         this.runtime = this@toMovie.runtime
         this.releaseDate = this@toMovie.releaseDate
         this.availableGlobally = this@toMovie.availableGlobally
-        this.language = this@toMovie.language
+        this.locale = this@toMovie.locale
         this.viewSummaries.add(this@toMovie.toViewSummary())
     }.apply { this.viewSummaries.forEach { it.movie = this } }
 
@@ -48,7 +48,7 @@ fun ReportSheetRow.toTvShow() =
         this.title = this@toTvShow.title?.toTvShowTitle()
         this.originalTitle = this@toTvShow.originalTitle?.toTvShowTitle()
         this.availableGlobally = this@toTvShow.availableGlobally
-        this.language = this@toTvShow.language
+        this.locale = this@toTvShow.locale
     }
 
 fun String?.toTvShowTitle() =

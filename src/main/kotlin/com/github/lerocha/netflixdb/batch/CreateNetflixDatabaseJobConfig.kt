@@ -279,7 +279,7 @@ class CreateNetflixDatabaseJobConfig(
                     runtime = rowSet.getRuntimeInMinutes("runtime")
                     title = rowSet.getString("show_title")?.trim()
                     category = rowSet.getString("category")?.toCategory()
-                    language = if (rowSet.getString("category")?.contains("(English)") == true) Locale.ENGLISH else null
+                    locale = if (rowSet.getString("category")?.contains("(English)") == true) Locale.ENGLISH else null
                     availableGlobally = null
                     releaseDate = null
                     hoursViewed = rowSet.getInt("weekly_hours_viewed")
@@ -298,7 +298,7 @@ class CreateNetflixDatabaseJobConfig(
                 reportSheetRow.runtime?.let { movie.runtime = it }
                 reportSheetRow.releaseDate?.let { movie.releaseDate = it }
                 reportSheetRow.availableGlobally?.let { movie.availableGlobally = it }
-                reportSheetRow.language?.let { movie.language = it }
+                reportSheetRow.locale?.let { movie.locale = it }
                 movie.updateViewSummary(reportSheetRow)
                 movie
             }
@@ -324,7 +324,7 @@ class CreateNetflixDatabaseJobConfig(
                         updatedTvShow.originalTitle?.let { tvShow.originalTitle = it }
                         updatedTvShow.releaseDate?.let { tvShow.releaseDate = it }
                         updatedTvShow.availableGlobally?.let { tvShow.availableGlobally = it }
-                        updatedTvShow.language?.let { tvShow.language = it }
+                        updatedTvShow.locale?.let { tvShow.locale = it }
                         tvShow
                     } ?: updatedTvShow
                     season

@@ -8,6 +8,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.UUID
 
 @Component
@@ -28,6 +29,7 @@ class PostgresStrategy : DatabaseStrategy {
                 is Instant -> "'${instantFormatter.format(property)}'"
                 is LocalDate -> "'$property'"
                 is UUID -> "'$property'"
+                is Locale -> "'${property.language}'"
                 is AbstractEntity -> property.id.toString()
                 else -> property ?: "null"
             }

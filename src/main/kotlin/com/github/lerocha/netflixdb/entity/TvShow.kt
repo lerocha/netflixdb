@@ -34,8 +34,8 @@ class TvShow : AbstractEntity() {
     var availableGlobally: Boolean? = false
 
     @Column(length = 10, nullable = true)
-    @Comment("The original language of the TV show in ISO 639 language code")
-    var language: Locale? = null
+    @Comment("The original language/region of the TV show")
+    var locale: Locale? = null
 
     @OneToMany(mappedBy = "tvShow", fetch = FetchType.LAZY)
     var seasons: MutableList<Season> = mutableListOf()

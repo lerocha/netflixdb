@@ -39,8 +39,8 @@ class Movie : AbstractEntity() {
     var availableGlobally: Boolean? = false
 
     @Column(length = 10, nullable = true)
-    @Comment("The original language of the movie in ISO 639 language code")
-    var language: Locale? = null
+    @Comment("The original language/region of the movie")
+    var locale: Locale? = null
 
     @OneToMany(mappedBy = "movie", fetch = FetchType.LAZY, cascade = [(CascadeType.ALL)])
     var viewSummaries: MutableList<ViewSummary> = mutableListOf()
