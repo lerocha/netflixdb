@@ -1,0 +1,13 @@
+spring.datasource:
+  name: sqlite
+  driver-class-name: org.sqlite.JDBC
+  url: jdbc:sqlite:build/artifacts/netflixdb.sqlite
+
+spring.jpa:
+  database-platform: org.hibernate.community.dialect.SQLiteDialect
+  properties:
+    javax:
+      persistence:
+        schema-generation:
+          scripts:
+            create-target: build/artifacts/netflixdb-sqlite.sql

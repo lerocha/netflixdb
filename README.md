@@ -7,6 +7,7 @@ Sample database based on the [Netflix Engagement Report](https://about.netflix.c
 * MySQL
 * Oracle
 * PostgreSQL
+* SQLite
 
 ## Download
 Download the SQL scripts from the [latest release](../../releases) assets. One or more SQL script files are provided for each database vendor supported. You can run these SQL scripts with your preferred database tool.

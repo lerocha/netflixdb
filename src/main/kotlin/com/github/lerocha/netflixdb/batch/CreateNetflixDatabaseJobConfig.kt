@@ -70,13 +70,10 @@ class CreateNetflixDatabaseJobConfig(
             ViewSummary::class.java,
         )
 
-    companion object {
-        const val ARTIFACTS_DIRECTORY = "build/artifacts"
-    }
-
     @Bean
     fun createNetflixDatabaseJob(
         hibernateProperties: HibernateProperties,
+        setupStep: Step,
         importEngagementReport20240101Step: Step,
         importEngagementReport20230701Step: Step,
         importTop10ListStep: Step,
@@ -88,33 +85,38 @@ class CreateNetflixDatabaseJobConfig(
         tvShowRepository: TvShowRepository,
         seasonRepository: SeasonRepository,
         viewSummaryRepository: ViewSummaryRepository,
-    ): Job =
-        if (hibernateProperties.ddlAuto == "create") {
+    ): Job {
+        val jobBuilder =
             JobBuilder(getFunctionName(), jobRepository)
                 .incrementer(RunIdIncrementer())
-                .start(importEngagementReport20240101Step)
+                .start(setupStep)
+
+        if (hibernateProperties.ddlAuto == "create") {
+            jobBuilder.next(importEngagementReport20240101Step)
                 .next(importEngagementReport20230701Step)
                 .next(importTop10ListStep)
                 .next(populateMovieTableStep)
                 .next(populateSeasonTableStep)
-                .next(exportDatabaseSchemaStep)
-                .next(exportDataStep("movie", movieRepository))
-                .next(exportDataStep("tvShow", tvShowRepository))
-                .next(exportDataStep("season", seasonRepository))
-                .next(exportDataStep("viewSummary", viewSummaryRepository))
-                .next(fileCompressionStep)
-                .build()
-        } else {
-            JobBuilder(getFunctionName(), jobRepository)
-                .incrementer(RunIdIncrementer())
-                .start(exportDatabaseSchemaStep)
-                .next(exportDataStep("movie", movieRepository))
-                .next(exportDataStep("tvShow", tvShowRepository))
-                .next(exportDataStep("season", seasonRepository))
-                .next(exportDataStep("viewSummary", viewSummaryRepository))
-                .next(fileCompressionStep)
-                .build()
         }
+
+        if (dataSourceProperties.name != "sqlite") {
+            jobBuilder.next(exportDatabaseSchemaStep)
+                .next(exportDataStep("movie", movieRepository))
+                .next(exportDataStep("tvShow", tvShowRepository))
+                .next(exportDataStep("season", seasonRepository))
+                .next(exportDataStep("viewSummary", viewSummaryRepository))
+                .next(fileCompressionStep)
+        }
+        return jobBuilder.build()
+    }
+
+    @Bean
+    fun setupStep(): Step =
+        StepBuilder(getFunctionName(), jobRepository)
+            .tasklet({ _, _ ->
+                File(dataSourceProperties.getFilename()).parentFile.mkdirs()
+                RepeatStatus.FINISHED
+            }, transactionManager).build()
 
     @Bean
     fun importEngagementReport20240101Step(): Step =
@@ -190,7 +192,7 @@ class CreateNetflixDatabaseJobConfig(
                 databaseExportService.exportSchema(
                     title = "Netflix database",
                     databaseName = dataSourceProperties.name,
-                    filename = "$ARTIFACTS_DIRECTORY/netflixdb-${dataSourceProperties.name}.sql",
+                    filename = dataSourceProperties.getFilename(),
                     entityClasses,
                 )
                 logger.info("${chunkContext.stepContext.jobName}.${contribution.stepExecution.stepName}: database has been exported")
@@ -216,7 +218,7 @@ class CreateNetflixDatabaseJobConfig(
             )
             .processor { entity -> entity }
             .writer { chunk ->
-                File("$ARTIFACTS_DIRECTORY/netflixdb-${dataSourceProperties.name}.sql")
+                File(dataSourceProperties.getFilename())
                     .appendText(databaseExportService.getInsertStatement(dataSourceProperties.name, chunk.items))
             }
             .faultTolerant()
@@ -226,8 +228,8 @@ class CreateNetflixDatabaseJobConfig(
     fun fileCompressionStep(dataSourceProperties: DataSourceProperties): Step =
         StepBuilder(getFunctionName(), jobRepository)
             .tasklet({ contribution, chunkContext ->
-                val sqlFilename = "$ARTIFACTS_DIRECTORY/netflixdb-${dataSourceProperties.name}.sql"
-                val zipFilename = "$ARTIFACTS_DIRECTORY/netflixdb-${dataSourceProperties.name}.zip"
+                val sqlFilename = dataSourceProperties.getFilename()
+                val zipFilename = dataSourceProperties.getFilename("zip")
                 FileOutputStream(zipFilename).use { fileOutputStream ->
                     ZipOutputStream(fileOutputStream).use { zipOutputStream ->
                         val sqlFile = File(sqlFilename)
@@ -362,4 +364,6 @@ class CreateNetflixDatabaseJobConfig(
     private fun getFunctionName(): String {
         return Exception().stackTrace[1].methodName
     }
+
+    private fun DataSourceProperties.getFilename(extension: String = "sql"): String = "build/artifacts/netflixdb-${this.name}.$extension"
 }
