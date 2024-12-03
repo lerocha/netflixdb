@@ -57,3 +57,24 @@ services:
       - "5432:5432"
 #    volumes:
 #      - ./build/artifacts/netflixdb-postgresql.sql:/docker-entrypoint-initdb.d/netflixdb-postgresql.sql
+
+  #----------------------------------------------------------------------------
+  # SQL Server Container
+  # https://hub.docker.com/_/microsoft-mssql-server
+  # Commands:
+  #   /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $MSSQL_SA_PASSWORD -d master -i /docker-entrypoint-initdb.d/create_database.sql
+  #   /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $MSSQL_SA_PASSWORD -d Chinook
+  #----------------------------------------------------------------------------
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: Y
+      MSSQL_SA_PASSWORD: Test123!
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+#    volumes:
+#      - ./build/artifacts/netflixdb-mssql.sql:/docker-entrypoint-initdb.d/netflixdb-mssql.sql
+#    command:
+#     - /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $MSSQL_SA_PASSWORD -d master -i /docker-entrypoint-initdb.d/netflixdb-mssql.sql

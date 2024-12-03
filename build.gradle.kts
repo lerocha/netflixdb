@@ -35,6 +35,7 @@ dependencies {
     runtimeOnly("com.oracle.database.jdbc:ojdbc11")
     runtimeOnly("org.postgresql:postgresql")
     runtimeOnly("org.xerial:sqlite-jdbc")
+    runtimeOnly("com.microsoft.sqlserver:mssql-jdbc")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testImplementation("org.springframework.batch:spring-batch-test")

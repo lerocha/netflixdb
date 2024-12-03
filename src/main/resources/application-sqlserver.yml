@@ -1,0 +1,14 @@
+spring.datasource:
+  name: sqlserver
+  driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+  url: jdbc:sqlserver://localhost:1433;encrypt=true;trustServerCertificate=true;databaseName=netflixdb
+  username: sa
+  password: Test123!
+
+spring.jpa:
+  properties:
+    javax:
+      persistence:
+        schema-generation:
+          scripts:
+            create-target: build/artifacts/netflixdb-sqlserver.sql

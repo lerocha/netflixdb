@@ -13,7 +13,7 @@ import java.util.Locale
 @Entity
 @Table(
     indexes = [
-        Index(name = "idx_tv_show_title", columnList = "title", unique = true),
+        Index(name = "idx_tv_show_title", columnList = "title", unique = false),
     ],
 )
 class TvShow : AbstractEntity() {
