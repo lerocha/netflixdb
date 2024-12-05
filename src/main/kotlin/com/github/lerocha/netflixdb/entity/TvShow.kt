@@ -7,20 +7,23 @@ import jakarta.persistence.Index
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
+import org.hibernate.annotations.Nationalized
 import java.time.LocalDate
 import java.util.Locale
 
 @Entity
 @Table(
     indexes = [
-        Index(name = "idx_tv_show_title", columnList = "title", unique = false),
+        Index(name = "idx_tv_show_title", columnList = "title", unique = true),
     ],
 )
 class TvShow : AbstractEntity() {
+    @Nationalized
     @Column(length = 255, nullable = false)
     @Comment("The TV show title")
     var title: String? = null
 
+    @Nationalized
     @Column(length = 255, nullable = true)
     @Comment("The TV show title in its original language")
     var originalTitle: String? = null

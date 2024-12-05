@@ -8,6 +8,7 @@ import jakarta.persistence.Index
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
+import org.hibernate.annotations.Nationalized
 import java.time.LocalDate
 import java.util.Locale
 
@@ -18,10 +19,12 @@ import java.util.Locale
     ],
 )
 class Movie : AbstractEntity() {
+    @Nationalized
     @Column(length = 255, nullable = false)
     @Comment("The movie title")
     var title: String? = null
 
+    @Nationalized
     @Column(length = 255, nullable = true)
     @Comment("The movie title in its original language")
     var originalTitle: String? = null

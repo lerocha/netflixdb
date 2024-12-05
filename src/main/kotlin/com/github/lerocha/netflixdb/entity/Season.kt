@@ -11,6 +11,7 @@ import jakarta.persistence.ManyToOne
 import jakarta.persistence.OneToMany
 import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
+import org.hibernate.annotations.Nationalized
 import java.time.LocalDate
 
 @Entity
@@ -25,10 +26,12 @@ class Season : AbstractEntity() {
     @Comment("The season number")
     var seasonNumber: Int? = null
 
+    @Nationalized
     @Column(length = 255, nullable = false)
     @Comment("The season title")
     var title: String? = null
 
+    @Nationalized
     @Column(length = 255, nullable = true)
     @Comment("The season title in its original language")
     var originalTitle: String? = null

@@ -8,6 +8,7 @@ import jakarta.persistence.JoinColumn
 import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
+import org.hibernate.annotations.Nationalized
 import java.math.BigDecimal
 import java.time.LocalDate
 
@@ -22,10 +23,12 @@ class Episode : AbstractEntity() {
     @Comment("The episode number")
     var episodeNumber: Int? = null
 
+    @Nationalized
     @Column(length = 255, nullable = false)
     @Comment("The episode title")
     var title: String? = null
 
+    @Nationalized
     @Column(length = 255, nullable = false)
     @Comment("The episode title in its original language")
     var originalTitle: String? = null
