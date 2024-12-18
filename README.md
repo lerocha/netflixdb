@@ -1,4 +1,4 @@
-# Netflix DB
+# Netflix Sample Database
 
 Sample database based on the [Netflix Engagement Report](https://about.netflix.com/en/news/what-we-watched-the-first-half-of-2024) and on the [Netflix Global Top 10](https://www.netflix.com/tudum/top10) weekly list with movies and TV shows.
 
