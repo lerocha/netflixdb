@@ -23,6 +23,41 @@ Download the SQL scripts from the [latest release](../../releases) assets. One o
 
 ![database.png](src/main/resources/images/database.png)
 
+## Sample Queries - Postgres
+
+```sql
+-- Movies released since 2024-01-01
+select id, title, runtime from movie where release_date >= '2024-01-01';
+```
+
+```sql
+-- TV Show Seasons released since 2024-01-01
+select s.id, s.title as season_title, s.season_number, t.title as tv_show, s.runtime
+from season s left join tv_show t on t.id = s.tv_show_id
+where s.release_date >= '2024-01-01';
+```
+
+```sql
+-- Top 10 movies (English)
+select v.view_rank, m.title, v.hours_viewed, m.runtime, v.views, v.cumulative_weeks_in_top10
+from view_summary v
+inner join movie m on m.id = v.movie_id
+where duration = 'WEEKLY'
+  and start_date = '2024-12-09'
+  and m.locale = 'en'
+order by v.view_rank asc;
+```
+
+```sql
+-- Engagement report
+select m.title, m.original_title, m.available_globally, m.release_date, v.hours_viewed, m.runtime, v.views
+from view_summary v
+inner join movie m on m.id = v.movie_id
+where duration = 'SEMI_ANNUALLY'
+  and start_date = '2024-01-01'
+order by v.view_rank asc;
+```
+
 ## Development
 
 * The application is a [Spring Boot](https://spring.io/projects/spring-boot) application that uses [Spring Data JPA](https://spring.io/projects/spring-data-jpa) / [Hibernate](https://hibernate.org/orm/) Object/Relational Mapping framework. 
