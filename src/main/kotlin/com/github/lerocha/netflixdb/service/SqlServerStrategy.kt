@@ -31,6 +31,7 @@ class SqlServerStrategy : DatabaseStrategy {
                 is UUID -> "'$property'"
                 is Locale -> "N'${property.language}'"
                 is AbstractEntity -> property.id.toString()
+                is Boolean -> if (property) "1" else "0"
                 else -> property ?: "null"
             }
         }.joinToString(", ")
