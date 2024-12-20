@@ -1,6 +1,6 @@
 # Netflix Sample Database
 
-Sample database based on the [Netflix Engagement Report](https://about.netflix.com/en/news/what-we-watched-the-first-half-of-2024) and on the [Netflix Global Top 10](https://www.netflix.com/tudum/top10) weekly list with movies and TV shows.
+Sample database based on the data from the [Netflix Engagement Report](https://about.netflix.com/en/news/what-we-watched-the-first-half-of-2024) and the [Netflix Global Top 10](https://www.netflix.com/tudum/top10) weekly list, it includes movies and TV shows for learning and practice purposes.
 
 ## Supported Database Servers
 
