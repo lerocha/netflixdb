@@ -9,7 +9,6 @@ import com.github.lerocha.netflixdb.dto.toSeason
 import com.github.lerocha.netflixdb.dto.toTvShow
 import com.github.lerocha.netflixdb.dto.updateViewSummary
 import com.github.lerocha.netflixdb.entity.AbstractEntity
-import com.github.lerocha.netflixdb.entity.Episode
 import com.github.lerocha.netflixdb.entity.Movie
 import com.github.lerocha.netflixdb.entity.Season
 import com.github.lerocha.netflixdb.entity.SummaryDuration
@@ -66,7 +65,6 @@ class CreateNetflixDatabaseJobConfig(
             Movie::class.java,
             TvShow::class.java,
             Season::class.java,
-            Episode::class.java,
             ViewSummary::class.java,
         )
 
