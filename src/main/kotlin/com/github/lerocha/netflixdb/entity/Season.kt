@@ -49,8 +49,8 @@ class Season : AbstractEntity() {
     @JoinColumn(nullable = true, foreignKey = ForeignKey(name = "fk_season_tv_show_id"))
     var tvShow: TvShow? = null
 
-    @OneToMany(mappedBy = "season", fetch = FetchType.LAZY)
-    var episodes: MutableList<Episode> = mutableListOf()
+//    @OneToMany(mappedBy = "season", fetch = FetchType.LAZY)
+//    var episodes: MutableList<Episode> = mutableListOf()
 
     @OneToMany(mappedBy = "season", fetch = FetchType.LAZY, cascade = [(CascadeType.ALL)])
     var viewSummaries: MutableList<ViewSummary> = mutableListOf()
