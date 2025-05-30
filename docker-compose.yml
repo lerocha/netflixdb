@@ -48,7 +48,7 @@ services:
   #   psql -U postgres postgres
   #----------------------------------------------------------------------------
   postgres:
-    image: postgres:15.3-alpine
+    image: postgres:17.5-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
