@@ -21,7 +21,11 @@ import com.github.lerocha.netflixdb.repository.ViewSummaryRepository
 import com.github.lerocha.netflixdb.service.DatabaseExportService
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import org.springframework.batch.core.BatchStatus
+import org.springframework.batch.core.ExitStatus
 import org.springframework.batch.core.Job
+import org.springframework.batch.core.JobExecution
+import org.springframework.batch.core.JobExecutionListener
 import org.springframework.batch.core.Step
 import org.springframework.batch.core.job.builder.JobBuilder
 import org.springframework.batch.core.launch.support.RunIdIncrementer
@@ -48,6 +52,7 @@ import java.time.LocalDate
 import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import kotlin.system.exitProcess
 import kotlin.time.Duration
 
 @Configuration
@@ -67,6 +72,7 @@ class CreateNetflixDatabaseJobConfig(
             Season::class.java,
             ViewSummary::class.java,
         )
+    private val viewSummaryEndDate = LocalDate.parse("2025-06-08")
 
     @Bean
     fun createNetflixDatabaseJob(
@@ -77,6 +83,7 @@ class CreateNetflixDatabaseJobConfig(
         importTop10ListStep: Step,
         populateMovieTableStep: Step,
         populateSeasonTableStep: Step,
+        verifyContentStep: Step,
         exportDatabaseSchemaStep: Step,
         fileCompressionStep: Step,
         movieRepository: MovieRepository,
@@ -95,6 +102,7 @@ class CreateNetflixDatabaseJobConfig(
                 .next(importTop10ListStep)
                 .next(populateMovieTableStep)
                 .next(populateSeasonTableStep)
+                .next(verifyContentStep)
         }
 
         if (dataSourceProperties.name != "sqlite") {
@@ -105,7 +113,18 @@ class CreateNetflixDatabaseJobConfig(
                 .next(exportDataStep("viewSummary", viewSummaryRepository))
                 .next(fileCompressionStep)
         }
-        return jobBuilder.build()
+        return jobBuilder
+            .listener(
+                object : JobExecutionListener {
+                    override fun afterJob(jobExecution: JobExecution) {
+                        if (jobExecution.stepExecutions.any { it.exitStatus.exitCode == ExitStatus.FAILED.exitCode }) {
+                            jobExecution.status = BatchStatus.FAILED
+                            exitProcess(1)
+                        }
+                    }
+                },
+            )
+            .build()
     }
 
     @Bean
@@ -178,6 +197,22 @@ class CreateNetflixDatabaseJobConfig(
             .processor(seasonProcessor)
             .writer { chunk -> seasonRepository.saveAll(chunk.items) }
             .faultTolerant()
+            .build()
+
+    @Bean
+    fun verifyContentStep(viewSummaryRepository: ViewSummaryRepository): Step =
+        StepBuilder(getFunctionName(), jobRepository)
+            .tasklet({ contribution, chunkContext ->
+                val results = viewSummaryRepository.findAllByEndDate(viewSummaryEndDate)
+                if (results.isEmpty()) {
+                    contribution.exitStatus = ExitStatus.FAILED
+                    throw IllegalStateException("No view summary found for end date $viewSummaryEndDate")
+                }
+                logger.info("${chunkContext.stepContext.jobName}.${contribution.stepExecution.stepName}: database has been verified")
+                RepeatStatus.FINISHED
+            }, transactionManager)
+            .allowStartIfComplete(false)
+            .startLimit(1)
             .build()
 
     @Bean
