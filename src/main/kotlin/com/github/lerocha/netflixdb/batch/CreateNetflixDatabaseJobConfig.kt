@@ -72,7 +72,7 @@ class CreateNetflixDatabaseJobConfig(
             Season::class.java,
             ViewSummary::class.java,
         )
-    private val viewSummaryEndDate = LocalDate.parse("2025-06-15")
+    private val viewSummaryEndDate = LocalDate.parse("2025-06-22")
 
     @Bean
     fun createNetflixDatabaseJob(
