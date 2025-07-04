@@ -5,6 +5,7 @@ plugins {
     id("io.spring.dependency-management") version "1.1.7"
     kotlin("plugin.jpa") version "1.9.25"
     id("org.jlleitschuh.gradle.ktlint") version "12.1.1"
+    id("de.undercouch.download") version "5.5.0"
 }
 
 group = "com.github.lerocha"
@@ -57,4 +58,14 @@ allOpen {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+tasks.register<de.undercouch.gradle.tasks.download.Download>("downloadReport") {
+    src("https://www.netflix.com/tudum/top10/data/all-weeks-global.xlsx")
+    dest("src/main/resources/reports/all-weeks-global.xlsx")
+    overwrite(true)
+}
+
+tasks.named("processResources") {
+    dependsOn("downloadReport")
 }
