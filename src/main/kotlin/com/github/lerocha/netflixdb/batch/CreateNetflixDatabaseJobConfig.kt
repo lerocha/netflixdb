@@ -73,9 +73,6 @@ class CreateNetflixDatabaseJobConfig(
             ViewSummary::class.java,
         )
 
-    // Set end date as the previous Sunday.
-    private val viewSummaryEndDate = LocalDate.now().let { it.minusDays(it.dayOfWeek.value.toLong()) }
-
     @Bean
     fun createNetflixDatabaseJob(
         hibernateProperties: HibernateProperties,
@@ -205,6 +202,8 @@ class CreateNetflixDatabaseJobConfig(
     fun verifyContentStep(viewSummaryRepository: ViewSummaryRepository): Step =
         StepBuilder(getFunctionName(), jobRepository)
             .tasklet({ contribution, _ ->
+                // Use the summary end date as the previous Sunday.
+                val viewSummaryEndDate = LocalDate.now().let { it.minusDays(it.dayOfWeek.value.toLong()) }
                 val results = viewSummaryRepository.findAllByEndDate(viewSummaryEndDate)
                 if (results.isEmpty()) {
                     contribution.exitStatus = ExitStatus.FAILED
