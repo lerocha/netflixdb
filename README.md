@@ -43,7 +43,7 @@ select v.view_rank, m.title, v.hours_viewed, m.runtime, v.views, v.cumulative_we
 from view_summary v
 inner join movie m on m.id = v.movie_id
 where duration = 'WEEKLY'
-  and end_date = '2025-06-22'
+  and end_date = '2025-06-29'
   and m.locale = 'en'
 order by v.view_rank;
 ```
