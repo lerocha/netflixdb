@@ -48,7 +48,9 @@ import org.springframework.transaction.PlatformTransactionManager
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -72,7 +74,6 @@ class CreateNetflixDatabaseJobConfig(
             Season::class.java,
             ViewSummary::class.java,
         )
-    private val viewSummaryEndDate = LocalDate.parse("2025-06-29")
 
     @Bean
     fun createNetflixDatabaseJob(
@@ -202,13 +203,15 @@ class CreateNetflixDatabaseJobConfig(
     @Bean
     fun verifyContentStep(viewSummaryRepository: ViewSummaryRepository): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .tasklet({ contribution, chunkContext ->
+            .tasklet({ contribution, _ ->
+                // Use the summary end date as the previous Sunday.
+                val viewSummaryEndDate = LocalDate.now().with(TemporalAdjusters.previous(DayOfWeek.SUNDAY))
                 val results = viewSummaryRepository.findAllByEndDate(viewSummaryEndDate)
                 if (results.isEmpty()) {
                     contribution.exitStatus = ExitStatus.FAILED
                     throw IllegalStateException("No view summary found for end date $viewSummaryEndDate")
                 }
-                logger.info("${chunkContext.stepContext.jobName}.${contribution.stepExecution.stepName}: database has been verified")
+                logger.info("${contribution.stepExecution.stepName}: database has been verified - endDate=$viewSummaryEndDate")
                 RepeatStatus.FINISHED
             }, transactionManager)
             .allowStartIfComplete(false)
@@ -221,14 +224,14 @@ class CreateNetflixDatabaseJobConfig(
         databaseExportService: DatabaseExportService,
     ): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .tasklet({ contribution, chunkContext ->
+            .tasklet({ contribution, _ ->
                 databaseExportService.exportSchema(
                     title = "Netflix database",
                     databaseName = dataSourceProperties.name,
                     filename = dataSourceProperties.getFilename(),
                     entityClasses,
                 )
-                logger.info("${chunkContext.stepContext.jobName}.${contribution.stepExecution.stepName}: database has been exported")
+                logger.info("${contribution.stepExecution.stepName}: database has been exported")
                 RepeatStatus.FINISHED
             }, transactionManager)
             .build()
@@ -260,7 +263,7 @@ class CreateNetflixDatabaseJobConfig(
     @Bean
     fun fileCompressionStep(dataSourceProperties: DataSourceProperties): Step =
         StepBuilder(getFunctionName(), jobRepository)
-            .tasklet({ contribution, chunkContext ->
+            .tasklet({ contribution, _ ->
                 val sqlFilename = dataSourceProperties.getFilename()
                 val zipFilename = dataSourceProperties.getFilename("zip")
                 FileOutputStream(zipFilename).use { fileOutputStream ->
@@ -272,9 +275,7 @@ class CreateNetflixDatabaseJobConfig(
                         zipOutputStream.write(fileInputStream.readAllBytes())
                     }
                 }
-                logger.info(
-                    "${chunkContext.stepContext.jobName}.${contribution.stepExecution.stepName}: $sqlFilename -> $zipFilename",
-                )
+                logger.info("${contribution.stepExecution.stepName}: $sqlFilename -> $zipFilename")
                 RepeatStatus.FINISHED
             }, transactionManager)
             .build()
