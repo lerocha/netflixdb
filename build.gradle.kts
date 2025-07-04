@@ -63,7 +63,7 @@ tasks.withType<Test> {
 tasks.register<de.undercouch.gradle.tasks.download.Download>("downloadReport") {
     src("https://www.netflix.com/tudum/top10/data/all-weeks-global.xlsx")
     dest("src/main/resources/reports/all-weeks-global.xlsx")
-    overwrite(true)
+    onlyIfNewer(true)
 }
 
 tasks.named("processResources") {
