@@ -48,7 +48,9 @@ import org.springframework.transaction.PlatformTransactionManager
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -203,7 +205,7 @@ class CreateNetflixDatabaseJobConfig(
         StepBuilder(getFunctionName(), jobRepository)
             .tasklet({ contribution, _ ->
                 // Use the summary end date as the previous Sunday.
-                val viewSummaryEndDate = LocalDate.now().let { it.minusDays(it.dayOfWeek.value.toLong()) }
+                val viewSummaryEndDate = LocalDate.now().with(TemporalAdjusters.previous(DayOfWeek.SUNDAY))
                 val results = viewSummaryRepository.findAllByEndDate(viewSummaryEndDate)
                 if (results.isEmpty()) {
                     contribution.exitStatus = ExitStatus.FAILED
