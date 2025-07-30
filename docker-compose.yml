@@ -74,7 +74,12 @@ services:
       MSSQL_PID: Developer
     ports:
       - "1433:1433"
+    entrypoint: |
+      bash -c '
+      /opt/mssql/bin/sqlservr &
+      sleep 15
+      /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P Test123! -C -Q "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = '"'"'netflixdb'"'"') CREATE DATABASE [netflixdb];"
+      wait
+      '
 #    volumes:
 #      - ./build/artifacts/netflixdb-mssql.sql:/docker-entrypoint-initdb.d/netflixdb-mssql.sql
-#    command:
-#     - /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P $MSSQL_SA_PASSWORD -d master -i /docker-entrypoint-initdb.d/netflixdb-mssql.sql
