@@ -1,0 +1,186 @@
+name: Release
+
+on:
+  schedule:
+    - cron: '0 20 * * 2'  # Every Tuesday at 8 PM UTC
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:latest
+        env:
+          MYSQL_USER: mysql
+          MYSQL_PASSWORD: mysql
+          MYSQL_ROOT_PASSWORD: Test123
+          MYSQL_DATABASE: netflixdb
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+      postgres:
+        image: postgres:17.5-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: netflixdb
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+
+      oracle:
+        image: gvenzl/oracle-free:23-slim-faststart
+        env:
+          ORACLE_PASSWORD: Test123
+          APP_USER: netflixdb
+          APP_USER_PASSWORD: netflixdb
+        ports:
+          - 1521:1521
+
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: Y
+          MSSQL_SA_PASSWORD: Test123!
+          MSSQL_PID: Developer
+        ports:
+          - 1433:1433
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v4
+
+    - name: Build with Gradle
+      run: ./gradlew clean build
+
+    - name: Check if Excel report changed
+      id: check_excel
+      run: |
+        if git diff --name-only HEAD~1 HEAD | grep -q "src/main/resources/reports/all-weeks-global.xlsx"; then
+          echo "excel_changed=true" >> $GITHUB_OUTPUT
+          echo "Excel report has changed"
+        else
+          echo "excel_changed=false" >> $GITHUB_OUTPUT
+          echo "Excel report has not changed"
+        fi
+
+    - name: Stop if Excel report unchanged
+      if: steps.check_excel.outputs.excel_changed == 'false'
+      run: |
+        echo "Excel report has not changed. Stopping workflow."
+        exit 0
+
+    - name: Commit Excel report changes
+      if: steps.check_excel.outputs.excel_changed == 'true'
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add src/main/resources/reports/all-weeks-global.xlsx
+        git commit -m "feat: updating movies and view summary based on the latest Netflix engagement report" || exit 0
+        git push
+
+    - name: Wait for databases to be ready
+      if: steps.check_excel.outputs.excel_changed == 'true'
+      run: |
+        # Wait for MySQL
+        until nc -z localhost 3306; do
+          echo "Waiting for MySQL..."
+          sleep 5
+        done
+        
+        # Wait for PostgreSQL
+        until nc -z localhost 5432; do
+          echo "Waiting for PostgreSQL..."
+          sleep 5
+        done
+        
+        # Wait for SQL Server
+        until nc -z localhost 1433; do
+          echo "Waiting for SQL Server..."
+          sleep 5
+        done
+        
+        # Wait for Oracle (longer timeout as it takes more time to start)
+        timeout=300
+        while ! nc -z localhost 1521 && [ $timeout -gt 0 ]; do
+          echo "Waiting for Oracle... ($timeout seconds remaining)"
+          sleep 10
+          timeout=$((timeout-10))
+        done
+        
+        # Additional wait to ensure Oracle is fully ready
+        sleep 30
+
+    - name: Create SQL Server database
+      if: steps.check_excel.outputs.excel_changed == 'true'
+      run: |
+        # Install sqlcmd
+        curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+        curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/msprod.list
+        sudo apt-get update
+        sudo apt-get install -y mssql-tools18 unixodbc-dev
+        
+        # Create database
+        /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Test123!' -C -Q "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'netflixdb') CREATE DATABASE [netflixdb];"
+
+    - name: Run application with multiple profiles
+      if: steps.check_excel.outputs.excel_changed == 'true'
+      run: |
+        for p in h2 postgres mysql oracle sqlserver sqlite; do
+          echo "Running with profile: $p"
+          java -jar -Dspring.profiles.active=$p build/libs/netflixdb-0.0.1-SNAPSHOT.jar || echo "Profile $p failed but continuing..."
+        done
+
+    - name: Get next version
+      if: steps.check_excel.outputs.excel_changed == 'true'
+      id: next_version
+      run: |
+        # Get latest tag
+        latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
+        echo "Latest tag: $latest_tag"
+        
+        # Extract version numbers
+        if [[ $latest_tag =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          major=${BASH_REMATCH[1]}
+          minor=${BASH_REMATCH[2]}
+          patch=${BASH_REMATCH[3]}
+          
+          # Increment patch version
+          new_patch=$((patch + 1))
+          new_version="v${major}.${minor}.${new_patch}"
+        else
+          # Fallback if pattern doesn't match
+          new_version="v1.0.15"
+        fi
+        
+        echo "Next version: $new_version"
+        echo "version=$new_version" >> $GITHUB_OUTPUT
+
+    - name: Create release
+      if: steps.check_excel.outputs.excel_changed == 'true'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.next_version.outputs.version }}
+        name: ${{ steps.next_version.outputs.version }}
+        body: |
+          Automated release updating movies and view summary based on the latest Netflix engagement report
+          
+          Generated artifacts for all supported database platforms.
+        files: |
+          build/artifacts/*.zip
+          build/artifacts/*.sqlite
+        token: ${{ secrets.GITHUB_TOKEN }}
