@@ -150,9 +150,9 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ github.run_number }}
-        name: Release v${{ github.run_number }}
+        name: v${{ github.run_number }}
         body: |
-          Automated release with updated Netflix engagement report
+          Automated release updating movies and view summary based on the latest Netflix engagement report
           
           Generated artifacts for all supported database platforms.
         files: |
