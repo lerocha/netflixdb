@@ -145,12 +145,37 @@ jobs:
           java -jar -Dspring.profiles.active=$p build/libs/netflixdb-0.0.1-SNAPSHOT.jar || echo "Profile $p failed but continuing..."
         done
 
+    - name: Get next version
+      if: steps.check_excel.outputs.excel_changed == 'true'
+      id: next_version
+      run: |
+        # Get latest tag
+        latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v1.0.0")
+        echo "Latest tag: $latest_tag"
+        
+        # Extract version numbers
+        if [[ $latest_tag =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          major=${BASH_REMATCH[1]}
+          minor=${BASH_REMATCH[2]}
+          patch=${BASH_REMATCH[3]}
+          
+          # Increment patch version
+          new_patch=$((patch + 1))
+          new_version="v${major}.${minor}.${new_patch}"
+        else
+          # Fallback if pattern doesn't match
+          new_version="v1.0.15"
+        fi
+        
+        echo "Next version: $new_version"
+        echo "version=$new_version" >> $GITHUB_OUTPUT
+
     - name: Create release
       if: steps.check_excel.outputs.excel_changed == 'true'
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: v${{ github.run_number }}
-        name: v${{ github.run_number }}
+        tag_name: ${{ steps.next_version.outputs.version }}
+        name: ${{ steps.next_version.outputs.version }}
         body: |
           Automated release updating movies and view summary based on the latest Netflix engagement report
           
