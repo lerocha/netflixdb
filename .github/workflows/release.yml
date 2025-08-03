@@ -180,8 +180,6 @@ jobs:
         name: ${{ steps.next_version.outputs.version }}
         body: |
           Automated release updating movies and view summary based on the latest Netflix engagement report
-          
-          Generated artifacts for all supported database platforms.
         files: |
           build/artifacts/*.zip
           build/artifacts/*.sqlite
