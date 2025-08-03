@@ -87,6 +87,7 @@ jobs:
         exit 0
 
     - name: Commit Excel report changes
+      if: steps.check_excel.outputs.excel_changed == 'true'
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
@@ -95,6 +96,7 @@ jobs:
         git push
 
     - name: Wait for databases to be ready
+      if: steps.check_excel.outputs.excel_changed == 'true'
       run: |
         # Wait for MySQL
         until nc -z localhost 3306; do
@@ -126,6 +128,7 @@ jobs:
         sleep 30
 
     - name: Create SQL Server database
+      if: steps.check_excel.outputs.excel_changed == 'true'
       run: |
         # Install sqlcmd
         curl https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
@@ -137,6 +140,7 @@ jobs:
         /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Test123!' -C -Q "IF NOT EXISTS (SELECT * FROM sys.databases WHERE name = 'netflixdb') CREATE DATABASE [netflixdb];"
 
     - name: Run application with multiple profiles
+      if: steps.check_excel.outputs.excel_changed == 'true'
       run: |
         for p in h2 postgres mysql oracle sqlserver sqlite; do
           echo "Running with profile: $p"
@@ -144,6 +148,7 @@ jobs:
         done
 
     - name: Get next version
+      if: steps.check_excel.outputs.excel_changed == 'true'
       id: next_version
       run: |
         # Get latest tag
@@ -168,6 +173,7 @@ jobs:
         echo "version=$new_version" >> $GITHUB_OUTPUT
 
     - name: Create release
+      if: steps.check_excel.outputs.excel_changed == 'true'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.next_version.outputs.version }}
