@@ -2,7 +2,7 @@ name: Release
 
 on:
   schedule:
-    - cron: '0 20 * * 2'  # Every Tuesday at 8 PM UTC
+    - cron: '0 0 * * 3'  # Every Wednesday at 12 AM UTC
   workflow_dispatch:
 
 jobs:
