@@ -8,6 +8,8 @@ on:
 jobs:
   release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     
     services:
       mysql:
@@ -142,7 +144,7 @@ jobs:
       run: |
         for p in h2 postgres mysql oracle sqlserver sqlite; do
           echo "Running with profile: $p"
-          java -jar -Dspring.profiles.active=$p build/libs/netflixdb-0.0.1-SNAPSHOT.jar || echo "Profile $p failed but continuing..."
+          java -jar -Dspring.profiles.active=$p build/libs/netflixdb-0.0.1-SNAPSHOT.jar
         done
 
     - name: Get next version
@@ -178,8 +180,6 @@ jobs:
         name: ${{ steps.next_version.outputs.version }}
         body: |
           Automated release updating movies and view summary based on the latest Netflix engagement report
-          
-          Generated artifacts for all supported database platforms.
         files: |
           build/artifacts/*.zip
           build/artifacts/*.sqlite
