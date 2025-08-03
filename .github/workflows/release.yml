@@ -179,7 +179,8 @@ jobs:
         tag_name: ${{ steps.next_version.outputs.version }}
         name: ${{ steps.next_version.outputs.version }}
         body: |
-          Automated release updating movies and view summary based on the latest Netflix engagement report
+          ## What's Changed
+          * This is an automated release to update the movies and view summary based on the latest [Netflix Global Top 10](https://www.netflix.com/tudum/top10) weekly list.
         files: |
           build/artifacts/*.zip
           build/artifacts/*.sqlite
