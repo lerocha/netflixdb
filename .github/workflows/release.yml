@@ -92,7 +92,7 @@ jobs:
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add src/main/resources/reports/all-weeks-global.xlsx
-        git commit -m "feat: updating movies and view summary based on the latest Netflix engagement report" || exit 0
+        git commit -m "feat: updating movies and view summary based on the latest Netflix Global Top 10 weekly list" || exit 0
         git push
 
     - name: Wait for databases to be ready
