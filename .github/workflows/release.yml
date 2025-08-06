@@ -67,34 +67,33 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
 
-    - name: Get Excel file hash before build
-      id: hash_before
+    - name: Check if remote Excel file is different
+      id: check_excel
       run: |
+        # Download the current remote file to a temp location
+        curl -s -o /tmp/remote-all-weeks-global.xlsx https://www.netflix.com/tudum/top10/data/all-weeks-global.xlsx
+
+        # Compare with the committed file
         if [ -f "src/main/resources/reports/all-weeks-global.xlsx" ]; then
-          echo "hash=$(md5sum src/main/resources/reports/all-weeks-global.xlsx | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+          local_hash=$(md5sum src/main/resources/reports/all-weeks-global.xlsx | cut -d' ' -f1)
+          remote_hash=$(md5sum /tmp/remote-all-weeks-global.xlsx | cut -d' ' -f1)
+
+          if [ "$local_hash" != "$remote_hash" ]; then
+            echo "excel_changed=true" >> $GITHUB_OUTPUT
+            echo "Excel report has changed (local: $local_hash, remote: $remote_hash)"
+          else
+            echo "excel_changed=false" >> $GITHUB_OUTPUT
+            echo "Excel report has not changed (hash: $local_hash)"
+          fi
         else
-          echo "hash=none" >> $GITHUB_OUTPUT
+          # File doesn't exist locally, so it's definitely changed
+          echo "excel_changed=true" >> $GITHUB_OUTPUT
+          echo "Excel report file doesn't exist locally - treating as changed"
         fi
 
     - name: Build with Gradle
+      if: steps.check_excel.outputs.excel_changed == 'true'
       run: ./gradlew clean build
-
-    - name: Check if Excel report changed
-      id: check_excel
-      run: |
-        if [ -f "src/main/resources/reports/all-weeks-global.xlsx" ]; then
-          new_hash=$(md5sum src/main/resources/reports/all-weeks-global.xlsx | cut -d' ' -f1)
-          if [ "$new_hash" != "${{ steps.hash_before.outputs.hash }}" ]; then
-            echo "excel_changed=true" >> $GITHUB_OUTPUT
-            echo "Excel report has changed (hash changed from ${{ steps.hash_before.outputs.hash }} to $new_hash)"
-          else
-            echo "excel_changed=false" >> $GITHUB_OUTPUT
-            echo "Excel report has not changed (hash: $new_hash)"
-          fi
-        else
-          echo "excel_changed=false" >> $GITHUB_OUTPUT
-          echo "Excel report file not found"
-        fi
 
     - name: Stop if Excel report unchanged
       if: steps.check_excel.outputs.excel_changed == 'false'
