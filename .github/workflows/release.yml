@@ -66,18 +66,33 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@v4
 
+    - name: Get Excel file hash before build
+      id: hash_before
+      run: |
+        if [ -f "src/main/resources/reports/all-weeks-global.xlsx" ]; then
+          echo "hash=$(md5sum src/main/resources/reports/all-weeks-global.xlsx | cut -d' ' -f1)" >> $GITHUB_OUTPUT
+        else
+          echo "hash=none" >> $GITHUB_OUTPUT
+        fi
+
     - name: Build with Gradle
       run: ./gradlew clean build
 
     - name: Check if Excel report changed
       id: check_excel
       run: |
-        if git status --porcelain | grep -q "src/main/resources/reports/all-weeks-global.xlsx"; then
-          echo "excel_changed=true" >> $GITHUB_OUTPUT
-          echo "Excel report has changed"
+        if [ -f "src/main/resources/reports/all-weeks-global.xlsx" ]; then
+          new_hash=$(md5sum src/main/resources/reports/all-weeks-global.xlsx | cut -d' ' -f1)
+          if [ "$new_hash" != "${{ steps.hash_before.outputs.hash }}" ]; then
+            echo "excel_changed=true" >> $GITHUB_OUTPUT
+            echo "Excel report has changed (hash changed from ${{ steps.hash_before.outputs.hash }} to $new_hash)"
+          else
+            echo "excel_changed=false" >> $GITHUB_OUTPUT
+            echo "Excel report has not changed (hash: $new_hash)"
+          fi
         else
           echo "excel_changed=false" >> $GITHUB_OUTPUT
-          echo "Excel report has not changed"
+          echo "Excel report file not found"
         fi
 
     - name: Stop if Excel report unchanged
