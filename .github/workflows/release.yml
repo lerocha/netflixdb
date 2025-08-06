@@ -72,7 +72,7 @@ jobs:
     - name: Check if Excel report changed
       id: check_excel
       run: |
-        if git diff --name-only HEAD~1 HEAD | grep -q "src/main/resources/reports/all-weeks-global.xlsx"; then
+        if git diff --name-only HEAD | grep -q "src/main/resources/reports/all-weeks-global.xlsx"; then
           echo "excel_changed=true" >> $GITHUB_OUTPUT
           echo "Excel report has changed"
         else
