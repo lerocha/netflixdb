@@ -1,0 +1,207 @@
+================================================================================
+CURSOR AGENT LOG — NetflixDB readability & documentation pass
+================================================================================
+Date: 2026-05-22
+Scope: Local clean-code refactor, concise KDoc, RepoExplainDocs alignment
+Constraints honored: zero regression, no architectural shifts, no public API changes
+
+Verification (run on maintainer machine):
+  JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew compileKotlin  # BUILD SUCCESSFUL
+  JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew test            # BUILD SUCCESSFUL
+Note: Default Java 25 may fail Gradle; use Java 21.
+
+================================================================================
+SUMMARY
+================================================================================
+- 23 Kotlin source files refactored/documented (+372 / -251 lines net in src/)
+- RepoExplainDocs/ selectively updated (6 files) with source-code map and real class names
+- No framework changes, no entity schema changes, no repository signature changes
+- All @Bean method names preserved (Spring Batch step/job identity)
+
+================================================================================
+SOURCE: batch/CreateNetflixDatabaseJobConfig.kt (primary refactor)
+================================================================================
+Class-level KDoc describing the full pipeline (Excel ingest → JPA → verify → SQL export).
+
+Renames (internal only; behavior unchanged):
+  moviesMap                          → movieRowsByTitleAndRuntime
+  seasonsMap                         → seasonRowsByTitleAndRuntime
+  entityClasses                      → exportEntityClasses
+  getFunctionName()                  → callerBeanMethodName()
+  DataSourceProperties.getFilename() → artifactFilename()
+  writeReportSheetRow()              → accumulateReportRows()
+
+Extracted private helpers:
+  buildEngagementReportImportStep(stepName, engagementReport)
+  mapEngagementReportRow(rowSet, engagementReport)
+  mapTop10ListRow(rowSet)
+  mergeMovieFields(movie, row)
+  mergeSeasonFields(season, row)
+  resolveOrCreateTvShow(existingTvShow, row, tvShowRepository)
+  pollNextRowSet(map)
+  failJobOnStepFailureListener()
+  RowSet extensions: parseEngagementTitles(), parseLocalDate(), runtimeInMinutes()
+  (getString/getInt retained with clearer bodies)
+
+Constants (same numeric values as before):
+  ENGAGEMENT_IMPORT_CHUNK_SIZE = 100
+  ENTITY_POPULATE_CHUNK_SIZE     = 50
+  DATA_EXPORT_CHUNK_SIZE         = 100
+
+Deduplication:
+  - Shared buildEngagementReportImportStep() for 2024-01-01 and 2023-07-01 import steps
+  - Step names passed explicitly ("importEngagementReport20240101Step", etc.) so Spring
+    Batch metadata stays unique (callerBeanMethodName() cannot be used inside a shared
+    private helper without collapsing step names)
+
+Removed unused Spring injections:
+  - movieRepository from importTop10ListStep (was never used)
+  - movieRepository from movieProcessor (was never used)
+  - seasonRepository from seasonProcessor (was never used)
+
+Other improvements:
+  - FileInputStream wrapped in use {} in fileCompressionStep
+  - Filter for valid rows: title != null && runtime != null (equivalent to prior is checks)
+  - importEngagementReport steps share reader/writer/processor wiring via helper
+
+================================================================================
+SOURCE: dto/ReportSheetRow.kt
+================================================================================
+- KDoc on ReportSheetRow, toTvShowTitle, updateViewSummary, now()
+- extractSeasonNumber() private helper (digits after ":" in season titles)
+- updateViewSummary: early return after merging into existing summary; clearer naming
+  (incoming / existing); same upsert key (parent, duration, startDate)
+- Builder blocks simplified (same field assignments)
+
+================================================================================
+SOURCE: dto/StreamingCategory.kt
+================================================================================
+- KDoc on toCategory() explaining film/tv heuristics and valueOf fallback
+- Renamed local variable: value → normalized
+
+================================================================================
+SOURCE: dto/EngagementReport.kt
+================================================================================
+- KDoc on enum (classpath workbooks + semi-annual windows)
+
+================================================================================
+SOURCE: entity/
+================================================================================
+AbstractEntity.kt   — KDoc: auditing base (@CreatedDate / @LastModifiedDate)
+Movie.kt            — KDoc: standalone film + view summaries
+TvShow.kt           — KDoc: series root
+Season.kt           — KDoc: season linked to TvShow; removed commented Episode list
+Episode.kt          — KDoc: not populated by current batch import
+ViewSummary.kt      — KDoc: metrics window; removed commented @Table indexes; bare @Table
+SummaryDuration.kt  — KDoc: WEEKLY / SEMI_ANNUALLY
+
+================================================================================
+SOURCE: repository/
+================================================================================
+MovieRepository.kt        — KDoc: dedupe by title + runtime
+TvShowRepository.kt       — KDoc: unique title, season linking
+SeasonRepository.kt       — KDoc: dedupe by title + runtime
+ViewSummaryRepository.kt  — KDoc: post-import verification by endDate
+
+(No method signatures changed.)
+
+================================================================================
+SOURCE: service/
+================================================================================
+DatabaseStrategy.kt
+  - Interface KDoc: dialect SQL + reflection INSERT mapping
+  - Extracted physicalTableName(); clarified getProperties() filters and FK id columns
+  - Logic equivalent to prior getProperties / getInsertStatement implementations
+
+DatabaseStrategyFactory.kt
+  - KDoc; getInstance() expressed as single-expression when
+
+DatabaseExportService.kt
+  - KDoc; extracted buildExportHibernateSettings(), writeSchemaHeader()
+  - exportSchema() flow unchanged
+
+MySqlStrategy.kt, PostgresStrategy.kt, OracleStrategy.kt, SqlServerStrategy.kt
+  - One-line dialect KDoc each (no logic changes)
+
+================================================================================
+SOURCE: NetflixDbApplication.kt
+================================================================================
+- KDoc: Spring Boot entry + batch job on startup when enabled
+
+================================================================================
+DOCUMENTATION: RepoExplainDocs/ (folder; user query referenced RepoExplainMds/)
+================================================================================
+Updated files (selective; tutorial snippets retained, aligned to real code):
+
+README.md
+  - Added "Code alignment" callout → CreateNetflixDatabaseJobConfig, ReportSheetRow.kt
+
+03-batch-layer-complete.md
+  - New "Source code map" table at top (class names, helpers, artifact path)
+  - Section title: ImportNetflixDataJobConfig → CreateNetflixDatabaseJobConfig
+  - Note that tutorial uses simplified names
+
+00-master-index.md
+  - Batch layer tree reflects real components (PoiItemReader, chunk sizes, etc.)
+  - Component table: CreateNetflixDatabaseJobConfig
+  - FAQ points to correct source files
+
+01-NetflixDB-What-Is-It.md
+  - Job name createNetflixDatabaseJob; batch package description
+
+spring-batch-guide-netflixdb.md
+  - Excel (not CSV) purpose line; implementation path
+  - Section rename; next-steps point to real helpers
+
+================================================================================
+INTENTIONALLY UNCHANGED
+================================================================================
+- All @Bean method names (createNetflixDatabaseJob, setupStep, populateMovieTableStep, …)
+- Entity fields, JPA mappings, indexes (except removal of commented-only code)
+- Repository interfaces and query method names
+- application.yml and profile-specific configs
+- build.gradle.kts, docker-compose.yml, tests (NetflixDbApplicationTests still @Ignore)
+- Business rules: title/runtime dedupe, view summary merge, job conditional branches
+  (ddlAuto == "create", datasource name != "sqlite")
+
+================================================================================
+FILES TOUCHED (complete list)
+================================================================================
+Kotlin (modified):
+  src/main/kotlin/com/github/lerocha/netflixdb/NetflixDbApplication.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/batch/CreateNetflixDatabaseJobConfig.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/dto/EngagementReport.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/dto/ReportSheetRow.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/dto/StreamingCategory.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/entity/AbstractEntity.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/entity/Episode.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/entity/Movie.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/entity/Season.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/entity/SummaryDuration.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/entity/TvShow.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/entity/ViewSummary.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/repository/MovieRepository.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/repository/SeasonRepository.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/repository/TvShowRepository.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/repository/ViewSummaryRepository.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/service/DatabaseExportService.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/service/DatabaseStrategy.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/service/DatabaseStrategyFactory.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/service/MySqlStrategy.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/service/OracleStrategy.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/service/PostgresStrategy.kt
+  src/main/kotlin/com/github/lerocha/netflixdb/service/SqlServerStrategy.kt
+
+Markdown (modified under RepoExplainDocs/):
+  RepoExplainDocs/README.md
+  RepoExplainDocs/00-master-index.md
+  RepoExplainDocs/01-NetflixDB-What-Is-It.md
+  RepoExplainDocs/03-batch-layer-complete.md
+  RepoExplainDocs/spring-batch-guide-netflixdb.md
+
+Log file (this file):
+  cursor_logs.txt
+
+================================================================================
+END OF LOG
+================================================================================

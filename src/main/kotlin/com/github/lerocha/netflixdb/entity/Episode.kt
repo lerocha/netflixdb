@@ -12,6 +12,7 @@ import org.hibernate.annotations.Nationalized
 import java.math.BigDecimal
 import java.time.LocalDate
 
+/** Individual episode within a [Season]; not populated by the current batch import. */
 @Entity
 @Table(
     indexes = [

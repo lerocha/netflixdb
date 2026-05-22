@@ -12,6 +12,7 @@ import org.hibernate.annotations.Nationalized
 import java.time.LocalDate
 import java.util.Locale
 
+/** Standalone film title with optional global availability and aggregated view metrics. */
 @Entity
 @Table(
     indexes = [

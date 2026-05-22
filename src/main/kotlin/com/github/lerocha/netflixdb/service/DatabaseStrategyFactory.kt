@@ -2,6 +2,7 @@ package com.github.lerocha.netflixdb.service
 
 import org.springframework.stereotype.Component
 
+/** Resolves a [DatabaseStrategy] implementation from the active Spring datasource profile name. */
 @Component
 class DatabaseStrategyFactory(
     private val oracleStrategy: OracleStrategy,
@@ -9,8 +10,8 @@ class DatabaseStrategyFactory(
     private val postgresStrategy: PostgresStrategy,
     private val sqlServerStrategy: SqlServerStrategy,
 ) {
-    fun getInstance(databaseName: String): DatabaseStrategy {
-        return when (databaseName) {
+    fun getInstance(databaseName: String): DatabaseStrategy =
+        when (databaseName) {
             "oracle" -> oracleStrategy
             "mysql" -> mysqlStrategy
             "postgres" -> postgresStrategy
@@ -18,5 +19,4 @@ class DatabaseStrategyFactory(
             "h2" -> postgresStrategy
             else -> throw IllegalArgumentException("Not supported database $databaseName")
         }
-    }
 }

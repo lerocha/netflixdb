@@ -11,6 +11,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
 
+/** SQL Server Unicode (N-prefix) literals and bit-style booleans. */
 @Component
 class SqlServerStrategy : DatabaseStrategy {
     private val instantFormatter =

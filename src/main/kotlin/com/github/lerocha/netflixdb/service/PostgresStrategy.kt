@@ -11,6 +11,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
 
+/** PostgreSQL literal formatting; [Locale] exports as ISO language code only. */
 @Component
 class PostgresStrategy : DatabaseStrategy {
     private val instantFormatter =

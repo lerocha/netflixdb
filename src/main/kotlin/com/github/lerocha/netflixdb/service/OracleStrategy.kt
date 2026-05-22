@@ -11,6 +11,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
 
+/** Oracle SQL*Plus conventions (session preamble, timestamp/date literals, ampersand escaping). */
 @Component
 class OracleStrategy : DatabaseStrategy {
     private val instantFormatter =

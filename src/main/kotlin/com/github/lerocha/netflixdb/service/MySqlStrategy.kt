@@ -11,6 +11,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
 
+/** MySQL literal formatting (UTF-8 strings, UTC instants, binary UUIDs). */
 @Component
 class MySqlStrategy : DatabaseStrategy {
     private val instantFormatter =

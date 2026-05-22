@@ -11,13 +11,9 @@ import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
 import java.time.LocalDate
 
+/** Engagement metrics for a movie or season over a bounded [duration] window. */
 @Entity
-@Table(
-//    indexes = [
-//        Index(name = "fk_view_summary_movie_id", columnList = "movie_id", unique = false),
-//        Index(name = "fk_view_summary_season_id", columnList = "season_id", unique = false),
-//    ],
-)
+@Table
 class ViewSummary : AbstractEntity() {
     @Column(nullable = false)
     @Comment("The first day of the period this summary refers to")
