@@ -203,5 +203,16 @@ Log file (this file):
   cursor_logs.txt
 
 ================================================================================
+FOLLOW-UP: README.md (project root)
+================================================================================
+Date: 2026-05-22
+- Fixed stale link: ImportNetflixDataJobConfig.kt → CreateNetflixDatabaseJobConfig.kt
+- Clarified Excel reports, batch pipeline, artifact naming per profile
+- Kept sample queries PostgreSQL-oriented (DATE literals, NULLS LAST)
+- Added queries: weekly top TV (season), psql load hint
+- Added tables: supported vendors, core schema tables, source map, RepoExplainDocs link
+- Documented postgres-only build/run and docker compose postgres service
+
+================================================================================
 END OF LOG
 ================================================================================
