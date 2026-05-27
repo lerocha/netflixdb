@@ -44,6 +44,7 @@ class ViewSummary : AbstractEntity() {
     @Comment("The number of cumulative weeks in top 10 list")
     var cumulativeWeeksInTop10: Int? = null
 
+    // Exactly one of movie or season should be set per row (film vs TV metrics).
     @ManyToOne
     @Comment("The movie for this weekly summary")
     @JoinColumn(nullable = true, foreignKey = ForeignKey(name = "fk_view_summary_movie_id"))

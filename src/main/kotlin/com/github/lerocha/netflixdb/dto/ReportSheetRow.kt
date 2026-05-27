@@ -1,3 +1,7 @@
+/**
+ * Report row model and entity mapping used exclusively by the batch import pipeline.
+ * See RepoExplainMds/03-dto.md for field and merge semantics.
+ */
 package com.github.lerocha.netflixdb.dto
 
 import com.github.lerocha.netflixdb.entity.AbstractEntity
@@ -29,6 +33,7 @@ data class ReportSheetRow(
     var cumulativeWeeksInTop10: Int? = null,
 )
 
+/** First row seeds the entity; later rows only add/merge view summaries via [updateViewSummary]. */
 fun ReportSheetRow.toMovie() =
     Movie().apply {
         createdDate = now()

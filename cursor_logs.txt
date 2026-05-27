@@ -214,5 +214,16 @@ Date: 2026-05-22
 - Documented postgres-only build/run and docker compose postgres service
 
 ================================================================================
+FOLLOW-UP: RepoExplainMds + documentation-only pass
+================================================================================
+Date: 2026-05-22
+- Created RepoExplainMds/ with consolidated hierarchy (00–06 + appendix)
+- New 05-service.md covering DatabaseStrategy, Factory, ExportService, dialects
+- New 03-dto.md; deduplicated entity/repository/batch/config content
+- RepoExplainDocs/ legacy files removed; README redirects to RepoExplainMds/
+- Root README.md link updated
+- Source: comment-only additions (batch conditionals, service dialect notes, dto/entity)
+
+================================================================================
 END OF LOG
 ================================================================================

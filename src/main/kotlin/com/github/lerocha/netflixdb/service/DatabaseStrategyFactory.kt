@@ -16,7 +16,7 @@ class DatabaseStrategyFactory(
             "mysql" -> mysqlStrategy
             "postgres" -> postgresStrategy
             "sqlserver" -> sqlServerStrategy
-            "h2" -> postgresStrategy
+            "h2" -> postgresStrategy // H2 export uses Postgres-style literals in artifacts
             else -> throw IllegalArgumentException("Not supported database $databaseName")
         }
 }

@@ -30,7 +30,7 @@ class PostgresStrategy : DatabaseStrategy {
                 is Instant -> "'${instantFormatter.format(property)}'"
                 is LocalDate -> "'$property'"
                 is UUID -> "'$property'"
-                is Locale -> "'${property.language}'"
+                is Locale -> "'${property.language}'" // ISO language, not full Locale.toString()
                 is AbstractEntity -> property.id.toString()
                 else -> property ?: "null"
             }

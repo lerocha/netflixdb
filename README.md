@@ -132,7 +132,7 @@ Key source locations:
 | SQL export | `service/DatabaseExportService.kt`, `service/*Strategy.kt` |
 | Schema | `entity/*.kt` |
 
-Deeper onboarding notes live in [`RepoExplainDocs/`](RepoExplainDocs/) (architecture, Spring Batch, entities, configuration).
+Deeper onboarding notes live in [`RepoExplainMds/`](RepoExplainMds/) (architecture, Spring Batch, entities, service layer, configuration).
 
 ### System requirements
 

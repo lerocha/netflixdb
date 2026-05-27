@@ -16,6 +16,6 @@ fun String.toCategory(): StreamingCategory? {
     return when {
         normalized.contains("film") -> StreamingCategory.MOVIE
         normalized.contains("tv") -> StreamingCategory.TV_SHOW
-        else -> StreamingCategory.valueOf(this)
+        else -> StreamingCategory.valueOf(this) // sheet name matches enum constant (e.g. MOVIE)
     }
 }

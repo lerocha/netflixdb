@@ -47,5 +47,5 @@ class Movie : AbstractEntity() {
     var locale: Locale? = null
 
     @OneToMany(mappedBy = "movie", fetch = FetchType.LAZY, cascade = [(CascadeType.ALL)])
-    var viewSummaries: MutableList<ViewSummary> = mutableListOf()
+    var viewSummaries: MutableList<ViewSummary> = mutableListOf() // persisted with movie on saveAll
 }

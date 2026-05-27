@@ -104,6 +104,7 @@ class CreateNetflixDatabaseJobConfig(
                 .incrementer(RunIdIncrementer())
                 .start(setupStep)
 
+        // Import path only when Hibernate is allowed to create a fresh schema (typical ./build.sh runs).
         if (hibernateProperties.ddlAuto == "create") {
             jobBuilder
                 .next(importEngagementReport20240101Step)
@@ -114,6 +115,7 @@ class CreateNetflixDatabaseJobConfig(
                 .next(verifyContentStep)
         }
 
+        // SQLite profile keeps data local; multi-vendor SQL scripts are not appended.
         if (dataSourceProperties.name != "sqlite") {
             jobBuilder
                 .next(exportDatabaseSchemaStep)
@@ -161,7 +163,7 @@ class CreateNetflixDatabaseJobConfig(
             .chunk<ReportSheetRow, ReportSheetRow>(ENGAGEMENT_IMPORT_CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(engagementReportReader(engagementReport))
-            .processor { item -> item }
+            .processor { item -> item } // identity: staging happens in the writer
             .writer { chunk -> accumulateReportRows(chunk) }
             .faultTolerant()
             .build()
@@ -367,6 +369,7 @@ class CreateNetflixDatabaseJobConfig(
                     season.tvShow = resolveOrCreateTvShow(season.tvShow, row, tvShowRepository)
                     season
                 }
+            // Persist parent first so season rows get a stable tv_show_id in the same chunk transaction.
             season.tvShow = tvShowRepository.save(season.tvShow!!)
             season
         }
@@ -427,7 +430,7 @@ class CreateNetflixDatabaseJobConfig(
             override fun afterJob(jobExecution: JobExecution) {
                 if (jobExecution.stepExecutions.any { it.exitStatus.exitCode == ExitStatus.FAILED.exitCode }) {
                     jobExecution.status = BatchStatus.FAILED
-                    exitProcess(1)
+                    exitProcess(1) // non-zero exit for build.sh / CI when any step failed
                 }
             }
         }
@@ -452,6 +455,7 @@ class CreateNetflixDatabaseJobConfig(
     private fun RowSet.runtimeInMinutes(key: String): Long? =
         getString(key)?.let { raw ->
             when {
+                // "1:32" → kotlin.time.Duration; "2.5" → hours × 60 minutes
                 raw.contains(":") -> Duration.parseOrNull(raw.replace(":", "h") + "m")?.inWholeMinutes
                 else -> raw.toBigDecimalOrNull()?.multiply(60.toBigDecimal())?.toLong()
             }

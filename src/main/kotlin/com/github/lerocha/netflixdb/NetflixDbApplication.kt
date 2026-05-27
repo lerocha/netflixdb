@@ -8,5 +8,6 @@ import org.springframework.boot.runApplication
 class NetflixDbApplication
 
 fun main(args: Array<String>) {
+    // Batch job runs on startup when spring.batch.job.enabled=true (see application.yml).
     runApplication<NetflixDbApplication>(*args)
 }

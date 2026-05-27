@@ -25,7 +25,7 @@ class SqlServerStrategy : DatabaseStrategy {
     override fun <T> getSqlValues(vararg properties: T): String {
         return listOf(*properties).map { property ->
             when (property) {
-                is Enum<*> -> "N'$property'"
+                is Enum<*> -> "N'$property'" // Unicode string types for NVARCHAR columns
                 is String -> "N'${property.replace("'", "''")}'"
                 is Instant -> "N'${instantFormatter.format(property)}'"
                 is LocalDate -> "N'$property'"

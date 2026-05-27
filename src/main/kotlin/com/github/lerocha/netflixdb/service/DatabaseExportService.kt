@@ -40,6 +40,7 @@ class DatabaseExportService(
 
         writeSchemaHeader(title, databaseName, filename)
 
+        // Standalone MetadataSources: export DDL without mutating the running app's SessionFactory.
         SchemaExport()
             .setHaltOnError(true)
             .setFormat(true)

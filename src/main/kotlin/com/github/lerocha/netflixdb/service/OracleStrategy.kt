@@ -34,6 +34,7 @@ class OracleStrategy : DatabaseStrategy {
             when (property) {
                 is Enum<*> -> "'$property'"
                 is Boolean -> if (property) "1" else "0"
+                // SQL*Plus treats & as substitution; split with chr(38) concatenation.
                 is String -> "'${property.replace("'", "''").replace("&", "'||chr(38)||'")}'"
                 is Instant -> "timestamp '${instantFormatter.format(property)}'"
                 is LocalDate -> "date '$property'"
@@ -45,6 +46,7 @@ class OracleStrategy : DatabaseStrategy {
         }.joinToString(", ")
     }
 
+    // Oracle tooling is more reliable with single-row INSERT statements than large multi-value batches.
     override fun <T : AbstractEntity> getInsertStatement(entities: List<T>): String {
         val stringBuilder = StringBuilder()
         entities.map { entity -> getInsertStatement(entity) }.forEach { stringBuilder.appendLine(it) }
