@@ -75,8 +75,7 @@ fun ReportSheetRow.toSeason() =
         viewSummaries.add(toViewSummary())
     }.apply { viewSummaries.forEach { it.season = this } }
 
-private fun String.extractSeasonNumber(): Int? =
-    split(":").lastOrNull()?.filter { it.isDigit() }?.takeIf { it.isNotBlank() }?.toInt()
+private fun String.extractSeasonNumber(): Int? = split(":").lastOrNull()?.filter { it.isDigit() }?.takeIf { it.isNotBlank() }?.toInt()
 
 fun ReportSheetRow.toViewSummary() =
     ViewSummary().apply {

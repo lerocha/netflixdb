@@ -299,7 +299,10 @@ class CreateNetflixDatabaseJobConfig(
         }
 
     /** Engagement sheets encode localized titles as "English // Original". */
-    private fun mapEngagementReportRow(rowSet: RowSet, engagementReport: EngagementReport): ReportSheetRow {
+    private fun mapEngagementReportRow(
+        rowSet: RowSet,
+        engagementReport: EngagementReport,
+    ): ReportSheetRow {
         val (title, originalTitle) = rowSet.parseEngagementTitles()
         return ReportSheetRow().apply {
             startDate = engagementReport.startDate
@@ -388,7 +391,10 @@ class CreateNetflixDatabaseJobConfig(
             }
     }
 
-    private fun mergeMovieFields(movie: Movie, row: ReportSheetRow) {
+    private fun mergeMovieFields(
+        movie: Movie,
+        row: ReportSheetRow,
+    ) {
         row.originalTitle?.let { movie.originalTitle = it }
         row.runtime?.let { movie.runtime = it }
         row.releaseDate?.let { movie.releaseDate = it }
@@ -396,7 +402,10 @@ class CreateNetflixDatabaseJobConfig(
         row.locale?.let { movie.locale = it }
     }
 
-    private fun mergeSeasonFields(season: Season, row: ReportSheetRow) {
+    private fun mergeSeasonFields(
+        season: Season,
+        row: ReportSheetRow,
+    ) {
         val parsedSeason = row.toSeason()
         parsedSeason.seasonNumber?.let { season.seasonNumber = it }
         parsedSeason.originalTitle?.let { season.originalTitle = it }
@@ -445,11 +454,9 @@ class CreateNetflixDatabaseJobConfig(
 
     private fun RowSet.getString(key: String): String? = properties.getProperty(key)
 
-    private fun RowSet.getInt(key: String): Int? =
-        getString(key)?.replace(",", "")?.let { if (it.isNotBlank()) it.toInt() else null }
+    private fun RowSet.getInt(key: String): Int? = getString(key)?.replace(",", "")?.let { if (it.isNotBlank()) it.toInt() else null }
 
-    private fun RowSet.parseLocalDate(key: String): LocalDate? =
-        getString(key)?.let { if (it.isNotBlank()) LocalDate.parse(it) else null }
+    private fun RowSet.parseLocalDate(key: String): LocalDate? = getString(key)?.let { if (it.isNotBlank()) LocalDate.parse(it) else null }
 
     /** Accepts `H:MM` duration strings or decimal hours (converted to minutes). */
     private fun RowSet.runtimeInMinutes(key: String): Long? =
@@ -467,8 +474,7 @@ class CreateNetflixDatabaseJobConfig(
      */
     private fun callerBeanMethodName(): String = Exception().stackTrace[1].methodName
 
-    private fun DataSourceProperties.artifactFilename(extension: String = "sql"): String =
-        "build/artifacts/netflixdb-${name}.$extension"
+    private fun DataSourceProperties.artifactFilename(extension: String = "sql"): String = "build/artifacts/netflixdb-$name.$extension"
 
     private companion object {
         const val ENGAGEMENT_IMPORT_CHUNK_SIZE = 100
