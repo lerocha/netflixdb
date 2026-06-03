@@ -12,6 +12,7 @@ import org.springframework.data.annotation.LastModifiedDate
 import org.springframework.data.jpa.domain.support.AuditingEntityListener
 import java.time.Instant
 
+/** Shared primary key and JPA auditing timestamps for all persisted entities. */
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener::class)
 abstract class AbstractEntity {
