@@ -3,6 +3,7 @@ package com.github.lerocha.netflixdb.dto
 import com.github.lerocha.netflixdb.entity.SummaryDuration
 import java.time.LocalDate
 
+/** Classpath Excel workbooks and their fixed semi-annual reporting windows. */
 enum class EngagementReport(
     val path: String,
     val startDate: LocalDate,
