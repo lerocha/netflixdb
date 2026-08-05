@@ -57,6 +57,10 @@ import java.util.zip.ZipOutputStream
 import kotlin.system.exitProcess
 import kotlin.time.Duration
 
+/**
+ * Spring Batch pipeline that ingests Netflix Excel reports, materializes JPA entities,
+ * verifies weekly view data, and optionally exports portable SQL artifacts per database profile.
+ */
 @Configuration
 class CreateNetflixDatabaseJobConfig(
     private val jobRepository: JobRepository,
@@ -65,9 +69,12 @@ class CreateNetflixDatabaseJobConfig(
     private val databaseExportService: DatabaseExportService,
 ) {
     private val logger: Logger = LoggerFactory.getLogger(javaClass)
-    private val moviesMap = mutableMapOf<Pair<String, Long>, MutableSet<ReportSheetRow>>()
-    private val seasonsMap = mutableMapOf<Pair<String, Long>, MutableSet<ReportSheetRow>>()
-    private val entityClasses =
+
+    /** Rows keyed by (title, runtime) until populate steps drain these maps. */
+    private val movieRowsByTitleAndRuntime = mutableMapOf<Pair<String, Long>, MutableSet<ReportSheetRow>>()
+    private val seasonRowsByTitleAndRuntime = mutableMapOf<Pair<String, Long>, MutableSet<ReportSheetRow>>()
+
+    private val exportEntityClasses =
         listOf(
             Movie::class.java,
             TvShow::class.java,
@@ -93,12 +100,14 @@ class CreateNetflixDatabaseJobConfig(
         viewSummaryRepository: ViewSummaryRepository,
     ): Job {
         val jobBuilder =
-            JobBuilder(getFunctionName(), jobRepository)
+            JobBuilder(callerBeanMethodName(), jobRepository)
                 .incrementer(RunIdIncrementer())
                 .start(setupStep)
 
+        // Import path only when Hibernate is allowed to create a fresh schema (typical ./build.sh runs).
         if (hibernateProperties.ddlAuto == "create") {
-            jobBuilder.next(importEngagementReport20240101Step)
+            jobBuilder
+                .next(importEngagementReport20240101Step)
                 .next(importEngagementReport20230701Step)
                 .next(importTop10ListStep)
                 .next(populateMovieTableStep)
@@ -106,69 +115,67 @@ class CreateNetflixDatabaseJobConfig(
                 .next(verifyContentStep)
         }
 
+        // SQLite profile keeps data local; multi-vendor SQL scripts are not appended.
         if (dataSourceProperties.name != "sqlite") {
-            jobBuilder.next(exportDatabaseSchemaStep)
+            jobBuilder
+                .next(exportDatabaseSchemaStep)
                 .next(exportDataStep("movie", movieRepository))
                 .next(exportDataStep("tvShow", tvShowRepository))
                 .next(exportDataStep("season", seasonRepository))
                 .next(exportDataStep("viewSummary", viewSummaryRepository))
                 .next(fileCompressionStep)
         }
+
         return jobBuilder
-            .listener(
-                object : JobExecutionListener {
-                    override fun afterJob(jobExecution: JobExecution) {
-                        if (jobExecution.stepExecutions.any { it.exitStatus.exitCode == ExitStatus.FAILED.exitCode }) {
-                            jobExecution.status = BatchStatus.FAILED
-                            exitProcess(1)
-                        }
-                    }
-                },
-            )
+            .listener(failJobOnStepFailureListener())
             .build()
     }
 
     @Bean
     fun setupStep(): Step =
-        StepBuilder(getFunctionName(), jobRepository)
+        StepBuilder(callerBeanMethodName(), jobRepository)
             .tasklet({ _, _ ->
-                File(dataSourceProperties.getFilename()).parentFile.mkdirs()
+                File(dataSourceProperties.artifactFilename()).parentFile.mkdirs()
                 RepeatStatus.FINISHED
-            }, transactionManager).build()
+            }, transactionManager)
+            .build()
 
     @Bean
     fun importEngagementReport20240101Step(): Step =
-        StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, ReportSheetRow>(100, transactionManager)
-            .allowStartIfComplete(true)
-            .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2024_01_01))
-            .processor { item -> item }
-            .writer { chunk -> writeReportSheetRow(chunk) }
-            .faultTolerant()
-            .build()
+        buildEngagementReportImportStep(
+            stepName = "importEngagementReport20240101Step",
+            engagementReport = EngagementReport.ENGAGEMENT_REPORT_2024_01_01,
+        )
 
     @Bean
     fun importEngagementReport20230701Step(): Step =
-        StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, ReportSheetRow>(100, transactionManager)
+        buildEngagementReportImportStep(
+            stepName = "importEngagementReport20230701Step",
+            engagementReport = EngagementReport.ENGAGEMENT_REPORT_2023_07_01,
+        )
+
+    /** Shared chunk step for semi-annual engagement workbooks (one header row skipped). */
+    private fun buildEngagementReportImportStep(
+        stepName: String,
+        engagementReport: EngagementReport,
+    ): Step =
+        StepBuilder(stepName, jobRepository)
+            .chunk<ReportSheetRow, ReportSheetRow>(ENGAGEMENT_IMPORT_CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
-            .reader(engagementReportReader(EngagementReport.ENGAGEMENT_REPORT_2023_07_01))
-            .processor { item -> item }
-            .writer { chunk -> writeReportSheetRow(chunk) }
+            .reader(engagementReportReader(engagementReport))
+            .processor { item -> item } // identity: staging happens in the writer
+            .writer { chunk -> accumulateReportRows(chunk) }
             .faultTolerant()
             .build()
 
     @Bean
-    fun importTop10ListStep(
-        top10ListReader: PoiItemReader<ReportSheetRow>,
-        movieRepository: MovieRepository,
-    ): Step =
-        StepBuilder(getFunctionName(), jobRepository)
-            .chunk<ReportSheetRow, ReportSheetRow>(100, transactionManager)
+    fun importTop10ListStep(top10ListReader: PoiItemReader<ReportSheetRow>): Step =
+        StepBuilder(callerBeanMethodName(), jobRepository)
+            .chunk<ReportSheetRow, ReportSheetRow>(ENGAGEMENT_IMPORT_CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(top10ListReader)
             .processor { item -> item }
-            .writer { chunk -> writeReportSheetRow(chunk) }
+            .writer { chunk -> accumulateReportRows(chunk) }
             .faultTolerant()
             .build()
 
@@ -177,10 +184,10 @@ class CreateNetflixDatabaseJobConfig(
         movieProcessor: ItemProcessor<Set<ReportSheetRow>, Movie>,
         movieRepository: MovieRepository,
     ): Step =
-        StepBuilder(getFunctionName(), jobRepository)
-            .chunk<Set<ReportSheetRow>, Movie>(50, transactionManager)
+        StepBuilder(callerBeanMethodName(), jobRepository)
+            .chunk<Set<ReportSheetRow>, Movie>(ENTITY_POPULATE_CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
-            .reader { if (moviesMap.isNotEmpty()) moviesMap.remove(moviesMap.keys.first()) else null }
+            .reader { pollNextRowSet(movieRowsByTitleAndRuntime) }
             .processor(movieProcessor)
             .writer { chunk -> movieRepository.saveAll(chunk.items) }
             .faultTolerant()
@@ -191,20 +198,23 @@ class CreateNetflixDatabaseJobConfig(
         seasonProcessor: ItemProcessor<Set<ReportSheetRow>, Season>,
         seasonRepository: SeasonRepository,
     ): Step =
-        StepBuilder(getFunctionName(), jobRepository)
-            .chunk<Set<ReportSheetRow>, Season>(50, transactionManager)
+        StepBuilder(callerBeanMethodName(), jobRepository)
+            .chunk<Set<ReportSheetRow>, Season>(ENTITY_POPULATE_CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
-            .reader { if (seasonsMap.isNotEmpty()) seasonsMap.remove(seasonsMap.keys.first()) else null }
+            .reader { pollNextRowSet(seasonRowsByTitleAndRuntime) }
             .processor(seasonProcessor)
             .writer { chunk -> seasonRepository.saveAll(chunk.items) }
             .faultTolerant()
             .build()
 
+    /**
+     * Fails the job when no [ViewSummary] exists for the most recent Sunday end date,
+     * proving that weekly top-10 data was loaded.
+     */
     @Bean
     fun verifyContentStep(viewSummaryRepository: ViewSummaryRepository): Step =
-        StepBuilder(getFunctionName(), jobRepository)
+        StepBuilder(callerBeanMethodName(), jobRepository)
             .tasklet({ contribution, _ ->
-                // Use the summary end date as the previous Sunday.
                 val viewSummaryEndDate = LocalDate.now().with(TemporalAdjusters.previous(DayOfWeek.SUNDAY))
                 val results = viewSummaryRepository.findAllByEndDate(viewSummaryEndDate)
                 if (results.isEmpty()) {
@@ -223,25 +233,26 @@ class CreateNetflixDatabaseJobConfig(
         dataSourceProperties: DataSourceProperties,
         databaseExportService: DatabaseExportService,
     ): Step =
-        StepBuilder(getFunctionName(), jobRepository)
+        StepBuilder(callerBeanMethodName(), jobRepository)
             .tasklet({ contribution, _ ->
                 databaseExportService.exportSchema(
                     title = "Netflix database",
                     databaseName = dataSourceProperties.name,
-                    filename = dataSourceProperties.getFilename(),
-                    entityClasses,
+                    filename = dataSourceProperties.artifactFilename(),
+                    exportEntityClasses,
                 )
                 logger.info("${contribution.stepExecution.stepName}: database has been exported")
                 RepeatStatus.FINISHED
             }, transactionManager)
             .build()
 
+    /** Paginated repository read; appends INSERT statements to the artifact SQL file. */
     fun <T : AbstractEntity> exportDataStep(
         name: String,
         repository: JpaRepository<T, Long>,
     ): Step =
         StepBuilder("${name}ExportStep", jobRepository)
-            .chunk<T, T>(100, transactionManager)
+            .chunk<T, T>(DATA_EXPORT_CHUNK_SIZE, transactionManager)
             .allowStartIfComplete(true)
             .reader(
                 RepositoryItemReaderBuilder<T>()
@@ -249,12 +260,12 @@ class CreateNetflixDatabaseJobConfig(
                     .repository(repository)
                     .methodName("findAll")
                     .sorts(mapOf("id" to Sort.Direction.ASC))
-                    .pageSize(100)
+                    .pageSize(DATA_EXPORT_CHUNK_SIZE)
                     .build(),
             )
             .processor { entity -> entity }
             .writer { chunk ->
-                File(dataSourceProperties.getFilename())
+                File(dataSourceProperties.artifactFilename())
                     .appendText(databaseExportService.getInsertStatement(dataSourceProperties.name, chunk.items))
             }
             .faultTolerant()
@@ -262,17 +273,17 @@ class CreateNetflixDatabaseJobConfig(
 
     @Bean
     fun fileCompressionStep(dataSourceProperties: DataSourceProperties): Step =
-        StepBuilder(getFunctionName(), jobRepository)
+        StepBuilder(callerBeanMethodName(), jobRepository)
             .tasklet({ contribution, _ ->
-                val sqlFilename = dataSourceProperties.getFilename()
-                val zipFilename = dataSourceProperties.getFilename("zip")
+                val sqlFilename = dataSourceProperties.artifactFilename()
+                val zipFilename = dataSourceProperties.artifactFilename("zip")
                 FileOutputStream(zipFilename).use { fileOutputStream ->
                     ZipOutputStream(fileOutputStream).use { zipOutputStream ->
                         val sqlFile = File(sqlFilename)
-                        val fileInputStream = FileInputStream(sqlFile)
-                        val zipEntry = ZipEntry(sqlFile.name)
-                        zipOutputStream.putNextEntry(zipEntry)
-                        zipOutputStream.write(fileInputStream.readAllBytes())
+                        FileInputStream(sqlFile).use { fileInputStream ->
+                            zipOutputStream.putNextEntry(ZipEntry(sqlFile.name))
+                            zipOutputStream.write(fileInputStream.readAllBytes())
+                        }
                     }
                 }
                 logger.info("${contribution.stepExecution.stepName}: $sqlFilename -> $zipFilename")
@@ -280,62 +291,70 @@ class CreateNetflixDatabaseJobConfig(
             }, transactionManager)
             .build()
 
-    fun engagementReportReader(engagementReport: EngagementReport) =
+    private fun engagementReportReader(engagementReport: EngagementReport) =
         PoiItemReader<ReportSheetRow>().apply {
             setLinesToSkip(1)
             setResource(ClassPathResource(engagementReport.path))
-            setRowMapper { rowSet ->
-                val titles = rowSet.getString("Title")?.split("//") ?: emptyList()
-                ReportSheetRow().apply {
-                    startDate = engagementReport.startDate
-                    endDate = engagementReport.endDate
-                    duration = engagementReport.duration
-                    runtime = rowSet.getRuntimeInMinutes("Runtime")
-                    title = titles.firstOrNull()?.trim()
-                    originalTitle = if (rowSet.getString("Title")?.contains("//") == true) titles.lastOrNull()?.trim() else null
-                    category = rowSet.metaData.sheetName?.toCategory()
-                    availableGlobally = rowSet.getString("Available Globally?") == "Yes"
-                    releaseDate = rowSet.getString("Release Date")?.let { if (it.isNotBlank()) LocalDate.parse(it) else null }
-                    hoursViewed = rowSet.getInt("Hours Viewed")
-                    views = rowSet.getInt("Views")
-                }
-            }
+            setRowMapper { rowSet -> mapEngagementReportRow(rowSet, engagementReport) }
         }
+
+    /** Engagement sheets encode localized titles as "English // Original". */
+    private fun mapEngagementReportRow(
+        rowSet: RowSet,
+        engagementReport: EngagementReport,
+    ): ReportSheetRow {
+        val (title, originalTitle) = rowSet.parseEngagementTitles()
+        return ReportSheetRow().apply {
+            startDate = engagementReport.startDate
+            endDate = engagementReport.endDate
+            duration = engagementReport.duration
+            runtime = rowSet.runtimeInMinutes("Runtime")
+            this.title = title
+            this.originalTitle = originalTitle
+            category = rowSet.metaData.sheetName?.toCategory()
+            availableGlobally = rowSet.getString("Available Globally?") == "Yes"
+            releaseDate = rowSet.parseLocalDate("Release Date")
+            hoursViewed = rowSet.getInt("Hours Viewed")
+            views = rowSet.getInt("Views")
+        }
+    }
 
     @Bean
     fun top10ListReader() =
         PoiItemReader<ReportSheetRow>().apply {
             setLinesToSkip(1)
             setResource(ClassPathResource("reports/all-weeks-global.xlsx"))
-            setRowMapper { rowSet ->
-                ReportSheetRow().apply {
-                    startDate = rowSet.getString("week")?.let { LocalDate.parse(it).minusDays(6) }
-                    endDate = rowSet.getString("week")?.let { LocalDate.parse(it) }
-                    duration = SummaryDuration.WEEKLY
-                    runtime = rowSet.getRuntimeInMinutes("runtime")
-                    title = rowSet.getString("show_title")?.trim()
-                    category = rowSet.getString("category")?.toCategory()
-                    locale = if (rowSet.getString("category")?.contains("(English)") == true) Locale.ENGLISH else null
-                    availableGlobally = null
-                    releaseDate = null
-                    hoursViewed = rowSet.getInt("weekly_hours_viewed")
-                    views = rowSet.getInt("weekly_views")
-                    viewRank = rowSet.getInt("weekly_rank")
-                    cumulativeWeeksInTop10 = rowSet.getInt("cumulative_weeks_in_top_10")
-                }
-            }
+            setRowMapper { rowSet -> mapTop10ListRow(rowSet) }
         }
 
+    /** Weekly global top-10: `week` column is the Sunday that ends the reporting period. */
+    private fun mapTop10ListRow(rowSet: RowSet): ReportSheetRow {
+        val weekEndingSunday = rowSet.getString("week")?.let { LocalDate.parse(it) }
+        val categoryLabel = rowSet.getString("category")
+        return ReportSheetRow().apply {
+            startDate = weekEndingSunday?.minusDays(6)
+            endDate = weekEndingSunday
+            duration = SummaryDuration.WEEKLY
+            runtime = rowSet.runtimeInMinutes("runtime")
+            title = rowSet.getString("show_title")?.trim()
+            category = categoryLabel?.toCategory()
+            locale = if (categoryLabel?.contains("(English)") == true) Locale.ENGLISH else null
+            availableGlobally = null
+            releaseDate = null
+            hoursViewed = rowSet.getInt("weekly_hours_viewed")
+            views = rowSet.getInt("weekly_views")
+            viewRank = rowSet.getInt("weekly_rank")
+            cumulativeWeeksInTop10 = rowSet.getInt("cumulative_weeks_in_top_10")
+        }
+    }
+
+    /** Merges all rows for the same title/runtime into one [Movie], accumulating [ViewSummary] records. */
     @Bean
     fun movieProcessor(movieRepository: MovieRepository): ItemProcessor<Set<ReportSheetRow>, Movie> =
-        ItemProcessor<Set<ReportSheetRow>, Movie> { reportSheetRows ->
-            reportSheetRows.fold(reportSheetRows.first().toMovie()) { movie, reportSheetRow ->
-                reportSheetRow.originalTitle?.let { movie.originalTitle = it }
-                reportSheetRow.runtime?.let { movie.runtime = it }
-                reportSheetRow.releaseDate?.let { movie.releaseDate = it }
-                reportSheetRow.availableGlobally?.let { movie.availableGlobally = it }
-                reportSheetRow.locale?.let { movie.locale = it }
-                movie.updateViewSummary(reportSheetRow)
+        ItemProcessor { reportSheetRows ->
+            reportSheetRows.fold(reportSheetRows.first().toMovie()) { movie, row ->
+                mergeMovieFields(movie, row)
+                movie.updateViewSummary(row)
                 movie
             }
         }
@@ -345,59 +364,121 @@ class CreateNetflixDatabaseJobConfig(
         seasonRepository: SeasonRepository,
         tvShowRepository: TvShowRepository,
     ): ItemProcessor<Set<ReportSheetRow>, Season> =
-        ItemProcessor<Set<ReportSheetRow>, Season> { reportSheetRows ->
+        ItemProcessor { reportSheetRows ->
             val season =
-                reportSheetRows.fold(reportSheetRows.first().toSeason()) { season, reportSheetRow ->
-                    val updatedSeason = reportSheetRow.toSeason()
-                    updatedSeason.seasonNumber?.let { season.seasonNumber = it }
-                    updatedSeason.originalTitle?.let { season.originalTitle = it }
-                    updatedSeason.runtime?.let { season.runtime = it }
-                    updatedSeason.releaseDate?.let { season.releaseDate = it }
-                    season.updateViewSummary(reportSheetRow)
-
-                    val updatedTvShow = reportSheetRow.toTvShow()
-                    season.tvShow = (season.tvShow ?: tvShowRepository.findByTitle(updatedTvShow.title!!))?.let { tvShow ->
-                        updatedTvShow.originalTitle?.let { tvShow.originalTitle = it }
-                        updatedTvShow.releaseDate?.let { tvShow.releaseDate = it }
-                        updatedTvShow.availableGlobally?.let { tvShow.availableGlobally = it }
-                        updatedTvShow.locale?.let { tvShow.locale = it }
-                        tvShow
-                    } ?: updatedTvShow
+                reportSheetRows.fold(reportSheetRows.first().toSeason()) { season, row ->
+                    mergeSeasonFields(season, row)
+                    season.updateViewSummary(row)
+                    season.tvShow = resolveOrCreateTvShow(season.tvShow, row, tvShowRepository)
                     season
                 }
+            // Persist parent first so season rows get a stable tv_show_id in the same chunk transaction.
             season.tvShow = tvShowRepository.save(season.tvShow!!)
             season
         }
 
-    private fun writeReportSheetRow(chunk: Chunk<out ReportSheetRow>) {
-        chunk.items.filter { it.title is String && it.runtime is Long }.forEach { item ->
-            val key = Pair(item.title!!, item.runtime!!)
-            when (item.category) {
-                StreamingCategory.MOVIE -> moviesMap.getOrPut(key) { mutableSetOf() }.add(item)
-                StreamingCategory.TV_SHOW -> seasonsMap.getOrPut(key) { mutableSetOf() }.add(item)
-                else -> {}
+    /** Routes parsed rows into in-memory maps; only rows with title and runtime are kept. */
+    private fun accumulateReportRows(chunk: Chunk<out ReportSheetRow>) {
+        chunk.items
+            .filter { it.title != null && it.runtime != null }
+            .forEach { row ->
+                val key = Pair(row.title!!, row.runtime!!)
+                when (row.category) {
+                    StreamingCategory.MOVIE -> movieRowsByTitleAndRuntime.getOrPut(key) { mutableSetOf() }.add(row)
+                    StreamingCategory.TV_SHOW -> seasonRowsByTitleAndRuntime.getOrPut(key) { mutableSetOf() }.add(row)
+                    else -> Unit
+                }
             }
+    }
+
+    private fun mergeMovieFields(
+        movie: Movie,
+        row: ReportSheetRow,
+    ) {
+        row.originalTitle?.let { movie.originalTitle = it }
+        row.runtime?.let { movie.runtime = it }
+        row.releaseDate?.let { movie.releaseDate = it }
+        row.availableGlobally?.let { movie.availableGlobally = it }
+        row.locale?.let { movie.locale = it }
+    }
+
+    private fun mergeSeasonFields(
+        season: Season,
+        row: ReportSheetRow,
+    ) {
+        val parsedSeason = row.toSeason()
+        parsedSeason.seasonNumber?.let { season.seasonNumber = it }
+        parsedSeason.originalTitle?.let { season.originalTitle = it }
+        parsedSeason.runtime?.let { season.runtime = it }
+        parsedSeason.releaseDate?.let { season.releaseDate = it }
+    }
+
+    private fun resolveOrCreateTvShow(
+        existingTvShow: TvShow?,
+        row: ReportSheetRow,
+        tvShowRepository: TvShowRepository,
+    ): TvShow {
+        val parsedTvShow = row.toTvShow()
+        val tvShow = existingTvShow ?: tvShowRepository.findByTitle(parsedTvShow.title!!)
+        return if (tvShow != null) {
+            parsedTvShow.originalTitle?.let { tvShow.originalTitle = it }
+            parsedTvShow.releaseDate?.let { tvShow.releaseDate = it }
+            parsedTvShow.availableGlobally?.let { tvShow.availableGlobally = it }
+            parsedTvShow.locale?.let { tvShow.locale = it }
+            tvShow
+        } else {
+            parsedTvShow
         }
     }
 
-    private fun RowSet.getString(key: String): String? = this.properties.getProperty(key)
+    private fun pollNextRowSet(map: MutableMap<Pair<String, Long>, MutableSet<ReportSheetRow>>): Set<ReportSheetRow>? =
+        if (map.isEmpty()) null else map.remove(map.keys.first())
 
-    private fun RowSet.getInt(key: String): Int? =
-        this.getString(key)?.replace(",", "")?.let {
-            if (it.isNotBlank()) it.toInt() else null
-        }
-
-    private fun RowSet.getRuntimeInMinutes(key: String): Long? =
-        this.getString(key)?.let {
-            return when {
-                it.contains(":") -> Duration.parseOrNull(it.replace(":", "h") + "m")?.inWholeMinutes
-                else -> it.toBigDecimalOrNull()?.multiply(60.toBigDecimal())?.toLong()
+    private fun failJobOnStepFailureListener(): JobExecutionListener =
+        object : JobExecutionListener {
+            override fun afterJob(jobExecution: JobExecution) {
+                if (jobExecution.stepExecutions.any { it.exitStatus.exitCode == ExitStatus.FAILED.exitCode }) {
+                    jobExecution.status = BatchStatus.FAILED
+                    exitProcess(1) // non-zero exit for build.sh / CI when any step failed
+                }
             }
         }
 
-    private fun getFunctionName(): String {
-        return Exception().stackTrace[1].methodName
+    private fun RowSet.parseEngagementTitles(): Pair<String?, String?> {
+        val rawTitle = getString("Title") ?: return null to null
+        val parts = rawTitle.split("//")
+        val primary = parts.firstOrNull()?.trim()
+        val alternate = if (rawTitle.contains("//")) parts.lastOrNull()?.trim() else null
+        return primary to alternate
     }
 
-    private fun DataSourceProperties.getFilename(extension: String = "sql"): String = "build/artifacts/netflixdb-${this.name}.$extension"
+    private fun RowSet.getString(key: String): String? = properties.getProperty(key)
+
+    private fun RowSet.getInt(key: String): Int? = getString(key)?.replace(",", "")?.let { if (it.isNotBlank()) it.toInt() else null }
+
+    private fun RowSet.parseLocalDate(key: String): LocalDate? = getString(key)?.let { if (it.isNotBlank()) LocalDate.parse(it) else null }
+
+    /** Accepts `H:MM` duration strings or decimal hours (converted to minutes). */
+    private fun RowSet.runtimeInMinutes(key: String): Long? =
+        getString(key)?.let { raw ->
+            when {
+                // "1:32" → kotlin.time.Duration; "2.5" → hours × 60 minutes
+                raw.contains(":") -> Duration.parseOrNull(raw.replace(":", "h") + "m")?.inWholeMinutes
+                else -> raw.toBigDecimalOrNull()?.multiply(60.toBigDecimal())?.toLong()
+            }
+        }
+
+    /**
+     * Step and job names must match the enclosing @Bean method name.
+     * Stack frame [1] is the @Bean factory method that invoked this helper.
+     */
+    private fun callerBeanMethodName(): String = Exception().stackTrace[1].methodName
+
+    private fun DataSourceProperties.artifactFilename(extension: String = "sql"): String = "build/artifacts/netflixdb-$name.$extension"
+
+    private companion object {
+        const val ENGAGEMENT_IMPORT_CHUNK_SIZE = 100
+        const val ENTITY_POPULATE_CHUNK_SIZE = 50
+        const val DATA_EXPORT_CHUNK_SIZE = 100
+    }
 }

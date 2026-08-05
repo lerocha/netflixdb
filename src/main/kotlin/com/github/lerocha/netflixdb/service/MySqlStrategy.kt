@@ -11,6 +11,7 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
 
+/** MySQL literal formatting (UTF-8 strings, UTC instants, binary UUIDs). */
 @Component
 class MySqlStrategy : DatabaseStrategy {
     private val instantFormatter =
@@ -28,7 +29,7 @@ class MySqlStrategy : DatabaseStrategy {
                 is String -> "'${property.replace("'", "''")}'"
                 is Instant -> "'${instantFormatter.format(property)}'"
                 is LocalDate -> "'$property'"
-                is UUID -> "0x${property.toString().uppercase().replace("-", "")}"
+                is UUID -> "0x${property.toString().uppercase().replace("-", "")}" // binary literal form
                 is Locale -> "'$property'"
                 is AbstractEntity -> property.id.toString()
                 else -> property ?: "null"

@@ -11,6 +11,7 @@ import org.hibernate.annotations.Nationalized
 import java.time.LocalDate
 import java.util.Locale
 
+/** Series root entity; seasons and episodes hang off this record. */
 @Entity
 @Table(
     indexes = [
