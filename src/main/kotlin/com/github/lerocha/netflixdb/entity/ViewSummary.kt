@@ -11,13 +11,9 @@ import jakarta.persistence.Table
 import org.hibernate.annotations.Comment
 import java.time.LocalDate
 
+/** Engagement metrics for a movie or season over a bounded [duration] window. */
 @Entity
-@Table(
-//    indexes = [
-//        Index(name = "fk_view_summary_movie_id", columnList = "movie_id", unique = false),
-//        Index(name = "fk_view_summary_season_id", columnList = "season_id", unique = false),
-//    ],
-)
+@Table
 class ViewSummary : AbstractEntity() {
     @Column(nullable = false)
     @Comment("The first day of the period this summary refers to")
@@ -48,6 +44,7 @@ class ViewSummary : AbstractEntity() {
     @Comment("The number of cumulative weeks in top 10 list")
     var cumulativeWeeksInTop10: Int? = null
 
+    // Exactly one of movie or season should be set per row (film vs TV metrics).
     @ManyToOne
     @Comment("The movie for this weekly summary")
     @JoinColumn(nullable = true, foreignKey = ForeignKey(name = "fk_view_summary_movie_id"))
